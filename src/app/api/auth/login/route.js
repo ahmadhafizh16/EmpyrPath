@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
-import { verifyUserCredentials, countUsers, publicUser } from "@/lib/db/repos/usersRepo.js";
+import {
+	verifyUserCredentials,
+	countUsers,
+	publicUser,
+} from "@/lib/db/repos/usersRepo.js";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
@@ -11,6 +15,7 @@ import {
 	recordSuccess,
 	getClientIp,
 } from "@/lib/auth/loginLimiter";
+import { isLocalRequest } from "@/dashboardGuard";
 
 const RESET_HINT =
 	"Forgot password? Reset to default via 9Router CLI → Settings → Reset Password to Default.";
@@ -116,10 +121,10 @@ export async function POST(request) {
 				success: true,
 				user: claims.userId
 					? publicUser({
-						id: claims.userId,
-						email: claims.email,
-						role: claims.role,
-					})
+							id: claims.userId,
+							email: claims.email,
+							role: claims.role,
+						})
 					: { role: "admin", legacy: true },
 			});
 		}

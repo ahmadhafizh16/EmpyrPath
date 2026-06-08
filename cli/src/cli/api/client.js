@@ -8,9 +8,9 @@ const { machineIdSync } = require("node-machine-id");
 
 // Default configuration
 const DEFAULT_CONFIG = {
-  host: "localhost",
-  port: 20128,
-  protocol: "http:",
+	host: "localhost",
+	port: 20128,
+	protocol: "http:",
 };
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
@@ -18,11 +18,15 @@ const CLI_TOKEN_SALT = "9r-cli-auth";
 const APP_NAME = "9router";
 
 function getDataDir() {
-  if (process.env.DATA_DIR) return process.env.DATA_DIR;
-  if (process.platform === "win32") {
-    return path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), APP_NAME);
-  }
-  return path.join(os.homedir(), `.${APP_NAME}`);
+	if (process.env.DATA_DIR) return process.env.DATA_DIR;
+	if (process.platform === "win32") {
+		return path.join(
+			process.env.APPDATA ||
+				path.join(os.homedir(), "AppData", "Roaming"),
+			APP_NAME,
+		);
+	}
+	return path.join(os.homedir(), `.${APP_NAME}`);
 }
 
 const MACHINE_ID_FILE = path.join(getDataDir(), "machine-id");
@@ -35,34 +39,44 @@ let cachedCliSecret = null;
 
 // Read raw machineId from shared file (written by server) → guarantees token match
 function loadRawMachineId() {
-  try {
-    const raw = fs.readFileSync(MACHINE_ID_FILE, "utf8").trim();
-    if (raw) return raw;
-  } catch {}
-  try { return machineIdSync(); } catch { return ""; }
+	try {
+		const raw = fs.readFileSync(MACHINE_ID_FILE, "utf8").trim();
+		if (raw) return raw;
+	} catch {}
+	try {
+		return machineIdSync();
+	} catch {
+		return "";
+	}
 }
 
 // Random secret shared with server via file → token unpredictable from machineId alone.
 function loadCliSecret() {
-  if (cachedCliSecret) return cachedCliSecret;
-  try {
-    cachedCliSecret = fs.readFileSync(CLI_SECRET_FILE, "utf8").trim();
-    if (cachedCliSecret) return cachedCliSecret;
-  } catch {}
-  cachedCliSecret = crypto.randomBytes(32).toString("hex");
-  try {
-    fs.mkdirSync(AUTH_DIR, { recursive: true });
-    fs.writeFileSync(CLI_SECRET_FILE, cachedCliSecret, { mode: 0o600 });
-  } catch {}
-  return cachedCliSecret;
+	if (cachedCliSecret) return cachedCliSecret;
+	try {
+		cachedCliSecret = fs.readFileSync(CLI_SECRET_FILE, "utf8").trim();
+		if (cachedCliSecret) return cachedCliSecret;
+	} catch {}
+	cachedCliSecret = crypto.randomBytes(32).toString("hex");
+	try {
+		fs.mkdirSync(AUTH_DIR, { recursive: true });
+		fs.writeFileSync(CLI_SECRET_FILE, cachedCliSecret, { mode: 0o600 });
+	} catch {}
+	return cachedCliSecret;
 }
 
 function getCliToken() {
-  if (cachedCliToken !== null) return cachedCliToken;
-  const raw = loadRawMachineId();
-  const secret = loadCliSecret();
-  cachedCliToken = raw ? crypto.createHash("sha256").update(raw + CLI_TOKEN_SALT + secret).digest("hex").substring(0, 16) : "";
-  return cachedCliToken;
+	if (cachedCliToken !== null) return cachedCliToken;
+	const raw = loadRawMachineId();
+	const secret = loadCliSecret();
+	cachedCliToken = raw
+		? crypto
+				.createHash("sha256")
+				.update(raw + CLI_TOKEN_SALT + secret)
+				.digest("hex")
+				.substring(0, 16)
+		: "";
+	return cachedCliToken;
 }
 
 /**
@@ -73,7 +87,7 @@ function getCliToken() {
  * @param {string} options.protocol - Protocol (http: or https:)
  */
 function configure(options = {}) {
-  config = { ...config, ...options };
+	config = { ...config, ...options };
 }
 
 /**
@@ -84,85 +98,91 @@ function configure(options = {}) {
  * @returns {Promise<Object>} Response with { success, data/error }
  */
 function makeRequest(method, path, body = null) {
-  return new Promise((resolve) => {
-    const httpModule = config.protocol === "https:" ? https : http;
-    
-    const options = {
-      hostname: config.host,
-      port: config.port,
-      path: path,
-      method: method,
-      headers: {
-        "Content-Type": "application/json",
-        [CLI_TOKEN_HEADER]: getCliToken(),
-      },
-    };
+	return new Promise((resolve) => {
+		const httpModule = config.protocol === "https:" ? https : http;
 
-    // Add Content-Length for POST/PUT requests
-    if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
-      const bodyString = JSON.stringify(body);
-      options.headers["Content-Length"] = Buffer.byteLength(bodyString);
-    }
+		const options = {
+			hostname: config.host,
+			port: config.port,
+			path: path,
+			method: method,
+			headers: {
+				"Content-Type": "application/json",
+				[CLI_TOKEN_HEADER]: getCliToken(),
+			},
+		};
 
-    const req = httpModule.request(options, (res) => {
-      let data = "";
+		// Add Content-Length for POST/PUT requests
+		if (
+			body &&
+			(method === "POST" || method === "PUT" || method === "PATCH")
+		) {
+			const bodyString = JSON.stringify(body);
+			options.headers["Content-Length"] = Buffer.byteLength(bodyString);
+		}
 
-      res.on("data", (chunk) => {
-        data += chunk;
-      });
+		const req = httpModule.request(options, (res) => {
+			let data = "";
 
-      res.on("end", () => {
-        try {
-          const parsed = data ? JSON.parse(data) : {};
-          
-          // Check if response indicates error
-          if (res.statusCode >= 400 || parsed.error) {
-            resolve({
-              success: false,
-              error: parsed.error || `HTTP ${res.statusCode}`,
-              statusCode: res.statusCode,
-            });
-          } else {
-            resolve({
-              success: true,
-              data: parsed,
-              statusCode: res.statusCode,
-            });
-          }
-        } catch (err) {
-          resolve({
-            success: false,
-            error: `Failed to parse response: ${err.message}`,
-          });
-        }
-      });
-    });
+			res.on("data", (chunk) => {
+				data += chunk;
+			});
 
-    req.on("error", (err) => {
-      resolve({
-        success: false,
-        error: `Network error: ${err.message}`,
-      });
-    });
+			res.on("end", () => {
+				try {
+					const parsed = data ? JSON.parse(data) : {};
 
-    req.on("timeout", () => {
-      req.destroy();
-      resolve({
-        success: false,
-        error: "Request timeout",
-      });
-    });
+					// Check if response indicates error
+					if (res.statusCode >= 400 || parsed.error) {
+						resolve({
+							success: false,
+							error: parsed.error || `HTTP ${res.statusCode}`,
+							statusCode: res.statusCode,
+						});
+					} else {
+						resolve({
+							success: true,
+							data: parsed,
+							statusCode: res.statusCode,
+						});
+					}
+				} catch (err) {
+					resolve({
+						success: false,
+						error: `Failed to parse response: ${err.message}`,
+					});
+				}
+			});
+		});
 
-    // Set timeout (30 seconds)
-    req.setTimeout(30000);
+		req.on("error", (err) => {
+			resolve({
+				success: false,
+				error: `Network error: ${err.message}`,
+			});
+		});
 
-    // Write body if present
-    if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
-      req.write(JSON.stringify(body));
-    }
+		req.on("timeout", () => {
+			req.destroy();
+			resolve({
+				success: false,
+				error: "Request timeout",
+			});
+		});
 
-    req.end();
-  });
+		// Set timeout (30 seconds)
+		req.setTimeout(30000);
+
+		// Write body if present
+		if (
+			body &&
+			(method === "POST" || method === "PUT" || method === "PATCH")
+		) {
+			req.write(JSON.stringify(body));
+		}
+
+		req.end();
+	});
 }
 
 // ============================================================================
@@ -174,7 +194,7 @@ function makeRequest(method, path, body = null) {
  * @returns {Promise<Object>} { success, data: { connections } }
  */
 async function getProviders() {
-  return makeRequest("GET", "/api/providers");
+	return makeRequest("GET", "/api/providers");
 }
 
 /**
@@ -183,7 +203,7 @@ async function getProviders() {
  * @returns {Promise<Object>} { success, data: { connection } }
  */
 async function getProviderById(id) {
-  return makeRequest("GET", `/api/providers/${id}`);
+	return makeRequest("GET", `/api/providers/${id}`);
 }
 
 /**
@@ -192,7 +212,7 @@ async function getProviderById(id) {
  * @returns {Promise<Object>} { success, data: { valid, error } }
  */
 async function testProvider(id) {
-  return makeRequest("POST", `/api/providers/${id}/test`);
+	return makeRequest("POST", `/api/providers/${id}/test`);
 }
 
 /**
@@ -201,7 +221,7 @@ async function testProvider(id) {
  * @returns {Promise<Object>} { success, data: { message } }
  */
 async function deleteProvider(id) {
-  return makeRequest("DELETE", `/api/providers/${id}`);
+	return makeRequest("DELETE", `/api/providers/${id}`);
 }
 
 /**
@@ -210,7 +230,7 @@ async function deleteProvider(id) {
  * @returns {Promise<Object>} { success, data: { provider, connectionId, models } }
  */
 async function getProviderModels(id) {
-  return makeRequest("GET", `/api/providers/${id}/models`);
+	return makeRequest("GET", `/api/providers/${id}/models`);
 }
 
 // ============================================================================
@@ -223,11 +243,15 @@ async function getProviderModels(id) {
  * @returns {Promise<Object>} { success, data: { authUrl, codeVerifier, state, redirectUri } }
  */
 async function getOAuthAuthUrl(provider) {
-  // Codex requires fixed port 1455 and path /auth/callback
-  const redirectUri = provider === "codex" 
-    ? "http://localhost:1455/auth/callback"
-    : "http://localhost:20128/callback";
-  return makeRequest("GET", `/api/oauth/${provider}/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`);
+	// Codex requires fixed port 1455 and path /auth/callback
+	const redirectUri =
+		provider === "codex"
+			? "http://localhost:1455/auth/callback"
+			: "http://localhost:20128/callback";
+	return makeRequest(
+		"GET",
+		`/api/oauth/${provider}/authorize?redirect_uri=${encodeURIComponent(redirectUri)}`,
+	);
 }
 
 /**
@@ -237,7 +261,7 @@ async function getOAuthAuthUrl(provider) {
  * @returns {Promise<Object>} { success, data }
  */
 async function exchangeOAuthCode(provider, data) {
-  return makeRequest("POST", `/api/oauth/${provider}/exchange`, data);
+	return makeRequest("POST", `/api/oauth/${provider}/exchange`, data);
 }
 
 /**
@@ -246,7 +270,7 @@ async function exchangeOAuthCode(provider, data) {
  * @returns {Promise<Object>} { success, data: { device_code, user_code, verification_uri, verification_uri_complete, codeVerifier, extraData } }
  */
 async function getOAuthDeviceCode(provider) {
-  return makeRequest("GET", `/api/oauth/${provider}/device-code`);
+	return makeRequest("GET", `/api/oauth/${provider}/device-code`);
 }
 
 /**
@@ -256,7 +280,7 @@ async function getOAuthDeviceCode(provider) {
  * @returns {Promise<Object>} { success, data: { pending } }
  */
 async function pollOAuthToken(provider, data) {
-  return makeRequest("POST", `/api/oauth/${provider}/poll`, data);
+	return makeRequest("POST", `/api/oauth/${provider}/poll`, data);
 }
 
 /**
@@ -265,7 +289,7 @@ async function pollOAuthToken(provider, data) {
  * @returns {Promise<Object>} { success, data }
  */
 async function createApiKeyProvider(data) {
-  return makeRequest("POST", "/api/providers", data);
+	return makeRequest("POST", "/api/providers", data);
 }
 
 /**
@@ -275,7 +299,7 @@ async function createApiKeyProvider(data) {
  * @returns {Promise<Object>} { success, data: { connection } }
  */
 async function updateConnection(id, data) {
-  return makeRequest("PUT", `/api/providers/${id}`, data);
+	return makeRequest("PUT", `/api/providers/${id}`, data);
 }
 
 // ============================================================================
@@ -287,7 +311,7 @@ async function updateConnection(id, data) {
  * @returns {Promise<Object>} { success, data: { keys } }
  */
 async function getApiKeys() {
-  return makeRequest("GET", "/api/keys");
+	return makeRequest("GET", "/api/keys");
 }
 
 /**
@@ -296,7 +320,7 @@ async function getApiKeys() {
  * @returns {Promise<Object>} { success, data: { key, name, id, machineId } }
  */
 async function createApiKey(name) {
-  return makeRequest("POST", "/api/keys", { name });
+	return makeRequest("POST", "/api/keys", { name });
 }
 
 /**
@@ -305,7 +329,7 @@ async function createApiKey(name) {
  * @returns {Promise<Object>} { success, data: { success } }
  */
 async function deleteApiKey(id) {
-  return makeRequest("DELETE", `/api/keys/${id}`);
+	return makeRequest("DELETE", `/api/keys/${id}`);
 }
 
 // ============================================================================
@@ -317,7 +341,7 @@ async function deleteApiKey(id) {
  * @returns {Promise<Object>} { success, data: { combos } }
  */
 async function getCombos() {
-  return makeRequest("GET", "/api/combos");
+	return makeRequest("GET", "/api/combos");
 }
 
 /**
@@ -326,7 +350,7 @@ async function getCombos() {
  * @returns {Promise<Object>} { success, data: combo }
  */
 async function getComboById(id) {
-  return makeRequest("GET", `/api/combos/${id}`);
+	return makeRequest("GET", `/api/combos/${id}`);
 }
 
 /**
@@ -335,7 +359,7 @@ async function getComboById(id) {
  * @returns {Promise<Object>} { success, data: combo }
  */
 async function createCombo(data) {
-  return makeRequest("POST", "/api/combos", data);
+	return makeRequest("POST", "/api/combos", data);
 }
 
 /**
@@ -345,7 +369,7 @@ async function createCombo(data) {
  * @returns {Promise<Object>} { success, data: combo }
  */
 async function updateCombo(id, data) {
-  return makeRequest("PUT", `/api/combos/${id}`, data);
+	return makeRequest("PUT", `/api/combos/${id}`, data);
 }
 
 /**
@@ -354,7 +378,7 @@ async function updateCombo(id, data) {
  * @returns {Promise<Object>} { success, data: { success } }
  */
 async function deleteCombo(id) {
-  return makeRequest("DELETE", `/api/combos/${id}`);
+	return makeRequest("DELETE", `/api/combos/${id}`);
 }
 
 // ============================================================================
@@ -367,7 +391,7 @@ async function deleteCombo(id) {
  * @returns {Promise<Object>} { success, data: { installed, has9Router, ... } }
  */
 async function getCliToolSettings(tool) {
-  return makeRequest("GET", `/api/cli-tools/${tool}-settings`);
+	return makeRequest("GET", `/api/cli-tools/${tool}-settings`);
 }
 
 /**
@@ -377,7 +401,7 @@ async function getCliToolSettings(tool) {
  * @returns {Promise<Object>} { success, data }
  */
 async function applyCliToolSettings(tool, body) {
-  return makeRequest("POST", `/api/cli-tools/${tool}-settings`, body);
+	return makeRequest("POST", `/api/cli-tools/${tool}-settings`, body);
 }
 
 /**
@@ -386,7 +410,7 @@ async function applyCliToolSettings(tool, body) {
  * @returns {Promise<Object>} { success, data }
  */
 async function resetCliToolSettings(tool) {
-  return makeRequest("DELETE", `/api/cli-tools/${tool}-settings`);
+	return makeRequest("DELETE", `/api/cli-tools/${tool}-settings`);
 }
 
 // ============================================================================
@@ -398,7 +422,7 @@ async function resetCliToolSettings(tool) {
  * @returns {Promise<Object>} { success, data: { users } }
  */
 async function getUsers() {
-  return makeRequest("GET", "/api/users");
+	return makeRequest("GET", "/api/users");
 }
 
 /**
@@ -407,7 +431,7 @@ async function getUsers() {
  * @returns {Promise<Object>} { success, data: { user } }
  */
 async function createUser(data) {
-  return makeRequest("POST", "/api/users", data);
+	return makeRequest("POST", "/api/users", data);
 }
 
 // ============================================================================
@@ -419,7 +443,7 @@ async function createUser(data) {
  * @returns {Promise<Object>} { success, data: settings }
  */
 async function getSettings() {
-  return makeRequest("GET", "/api/settings");
+	return makeRequest("GET", "/api/settings");
 }
 
 /**
@@ -428,7 +452,15 @@ async function getSettings() {
  * @returns {Promise<Object>} { success, data: settings }
  */
 async function updateSettings(data) {
-  return makeRequest("PATCH", "/api/settings", data);
+	return makeRequest("PATCH", "/api/settings", data);
+}
+
+/**
+ * Reset dashboard password to default (clears stored hash server-side)
+ * @returns {Promise<Object>} { success }
+ */
+async function resetPassword() {
+	return makeRequest("POST", "/api/auth/reset-password");
 }
 
 // ============================================================================
@@ -440,7 +472,7 @@ async function updateSettings(data) {
  * @returns {Promise<Object>} { success, data: { models } }
  */
 async function getModels() {
-  return makeRequest("GET", "/api/models");
+	return makeRequest("GET", "/api/models");
 }
 
 /**
@@ -448,7 +480,7 @@ async function getModels() {
  * @returns {Promise<Object>} { success, data: { object, data: [...models] } }
  */
 async function getAvailableModels() {
-  return makeRequest("GET", "/v1/models");
+	return makeRequest("GET", "/v1/models");
 }
 
 // ============================================================================
@@ -456,23 +488,23 @@ async function getAvailableModels() {
 // ============================================================================
 
 async function getProviderNodes() {
-  return makeRequest("GET", "/api/provider-nodes");
+	return makeRequest("GET", "/api/provider-nodes");
 }
 
 async function createProviderNode(data) {
-  return makeRequest("POST", "/api/provider-nodes", data);
+	return makeRequest("POST", "/api/provider-nodes", data);
 }
 
 async function updateProviderNode(id, data) {
-  return makeRequest("PUT", `/api/provider-nodes/${id}`, data);
+	return makeRequest("PUT", `/api/provider-nodes/${id}`, data);
 }
 
 async function deleteProviderNode(id) {
-  return makeRequest("DELETE", `/api/provider-nodes/${id}`);
+	return makeRequest("DELETE", `/api/provider-nodes/${id}`);
 }
 
 async function validateProviderNode(data) {
-  return makeRequest("POST", "/api/provider-nodes/validate", data);
+	return makeRequest("POST", "/api/provider-nodes/validate", data);
 }
 
 // ============================================================================
@@ -484,7 +516,7 @@ async function validateProviderNode(data) {
  * @returns {Promise<Object>} { success, data: { enabled, tunnelUrl, shortId, running } }
  */
 async function getTunnelStatus() {
-  return makeRequest("GET", "/api/tunnel/status");
+	return makeRequest("GET", "/api/tunnel/status");
 }
 
 /**
@@ -492,7 +524,7 @@ async function getTunnelStatus() {
  * @returns {Promise<Object>} { success, data: { tunnelUrl, shortId } }
  */
 async function enableTunnel() {
-  return makeRequest("POST", "/api/tunnel/enable");
+	return makeRequest("POST", "/api/tunnel/enable");
 }
 
 /**
@@ -500,7 +532,7 @@ async function enableTunnel() {
  * @returns {Promise<Object>} { success, data: { success } }
  */
 async function disableTunnel() {
-  return makeRequest("POST", "/api/tunnel/disable");
+	return makeRequest("POST", "/api/tunnel/disable");
 }
 
 // ============================================================================
@@ -508,64 +540,66 @@ async function disableTunnel() {
 // ============================================================================
 
 module.exports = {
-  configure,
-  
-  // Providers
-  getProviders,
-  getProviderById,
-  testProvider,
-  deleteProvider,
-  getProviderModels,
-  
-  // Connection aliases
-  testConnection: testProvider,
-  deleteConnection: deleteProvider,
-  updateConnection,
-  
-  // OAuth
-  getOAuthAuthUrl,
-  exchangeOAuthCode,
-  getOAuthDeviceCode,
-  pollOAuthToken,
-  createApiKeyProvider,
-  
-  // API Keys
-  getApiKeys,
-  createApiKey,
-  deleteApiKey,
-  
-  // Combos
-  getCombos,
-  getComboById,
-  createCombo,
-  updateCombo,
-  deleteCombo,
-  
-  // CLI Tools
-  getCliToolSettings,
-  applyCliToolSettings,
-  resetCliToolSettings,
+	configure,
 
-  // Settings
-  getSettings,
-  updateSettings,
+	// Providers
+	getProviders,
+	getProviderById,
+	testProvider,
+	deleteProvider,
+	getProviderModels,
 
-  // Users (admin provisioning)
-  getUsers,
-  createUser,
-  // Tunnel
-  getTunnelStatus,
-  enableTunnel,
-  disableTunnel,
-  
-  // Models
-  getModels,
-  getAvailableModels,
+	// Connection aliases
+	testConnection: testProvider,
+	deleteConnection: deleteProvider,
+	updateConnection,
 
-  // Provider Nodes (custom providers)
-  getProviderNodes,
-  createProviderNode,
-  updateProviderNode,
-  deleteProviderNode,
-  validateProviderNode,
+	// OAuth
+	getOAuthAuthUrl,
+	exchangeOAuthCode,
+	getOAuthDeviceCode,
+	pollOAuthToken,
+	createApiKeyProvider,
+
+	// API Keys
+	getApiKeys,
+	createApiKey,
+	deleteApiKey,
+
+	// Combos
+	getCombos,
+	getComboById,
+	createCombo,
+	updateCombo,
+	deleteCombo,
+
+	// CLI Tools
+	getCliToolSettings,
+	applyCliToolSettings,
+	resetCliToolSettings,
+
+	// Settings
+	getSettings,
+	updateSettings,
+
+	// Users (admin provisioning)
+	getUsers,
+	createUser,
+	resetPassword,
+
+	// Tunnel
+	getTunnelStatus,
+	enableTunnel,
+	disableTunnel,
+
+	// Models
+	getModels,
+	getAvailableModels,
+
+	// Provider Nodes (custom providers)
+	getProviderNodes,
+	createProviderNode,
+	updateProviderNode,
+	deleteProviderNode,
+	validateProviderNode,
 };
