@@ -45,6 +45,7 @@ import ConnectionRow from "./ConnectionRow";
 import AddApiKeyModal from "./AddApiKeyModal";
 import EditCompatibleNodeModal from "./EditCompatibleNodeModal";
 import AddCustomModelModal from "./AddCustomModelModal";
+import BulkImportCodexModal from "./BulkImportCodexModal";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
@@ -64,6 +65,7 @@ export default function ProviderDetailPage() {
 	const [showIFlowCookieModal, setShowIFlowCookieModal] = useState(false);
 	const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
 	const [addConnectionError, setAddConnectionError] = useState("");
+	const [showBulkImportCodex, setShowBulkImportCodex] = useState(false);
 	const [showEditModal, setShowEditModal] = useState(false);
 	const [showEditNodeModal, setShowEditNodeModal] = useState(false);
 	const [showBulkProxyModal, setShowBulkProxyModal] = useState(false);
@@ -93,7 +95,6 @@ export default function ProviderDetailPage() {
 	const [oneByOneSummary, setOneByOneSummary] = useState(null);
 	const stopOneByOneRef = useRef(false);
 	const [importingQoderModels, setImportingQoderModels] = useState(false);
-	const [tableCollapsed, setTableCollapsed] = useState(true);
 	const { copied, copy } = useCopyToClipboard();
 
 	const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -711,45 +712,11 @@ export default function ProviderDetailPage() {
 		});
 	};
 
-	const handleBulkDelete = () => {
-		const ids = [...selectedConnectionIds];
-		if (ids.length === 0) return;
-		setConfirmState({
-			title: "Delete Connections",
-			message: `Delete ${ids.length} selected connection${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
-			onConfirm: async () => {
-				setConfirmState(null);
-				try {
-					const results = await Promise.all(
-						ids.map((id) =>
-							fetch(`/api/providers/${id}`, {
-								method: "DELETE",
-							})
-								.then((res) => ({ id, ok: res.ok }))
-								.catch(() => ({ id, ok: false })),
-						),
-					);
-					const deletedIds = new Set(
-						results.filter((r) => r.ok).map((r) => r.id),
-					);
-					setConnections((prev) =>
-						prev.filter((c) => !deletedIds.has(c.id)),
-					);
-					setSelectedConnectionIds([]);
-					const failed = results.filter((r) => !r.ok).length;
-					if (failed > 0)
-						alert(`${failed} connection(s) could not be deleted.`);
-				} catch (error) {
-					console.log("Error bulk deleting connections:", error);
-				}
-			},
-		});
-	};
-
 	const handleOAuthSuccess = () => {
 		fetchConnections();
 		setShowOAuthModal(false);
 	};
+
 	const handleIFlowCookieSuccess = () => {
 		fetchConnections();
 		setShowIFlowCookieModal(false);
@@ -815,11 +782,6 @@ export default function ProviderDetailPage() {
 		} catch (error) {
 			console.log("Error updating connection status:", error);
 		}
-	};
-
-	const handleToggleActiveWithLoading = (connId, isActive, setLoading) => {
-		setLoading(true);
-		return handleUpdateConnectionStatus(connId, isActive).finally(() => setLoading(false));
 	};
 
 	const handleSwapPriority = async (index1, index2) => {
@@ -970,74 +932,55 @@ export default function ProviderDetailPage() {
 	const isSelected = (connectionId) =>
 		selectedConnectionIds.includes(connectionId);
 
-	const COLLAPSE_THRESHOLD = 5;
-	const isCollapsible = connections.length > COLLAPSE_THRESHOLD;
-	const displayConnections =
-		isCollapsible && tableCollapsed
-			? connections.slice(0, COLLAPSE_THRESHOLD)
-			: connections;
-
 	const connectionsList = (
-		<div className="overflow-x-auto">
-			<table className="w-full">
-				<thead>
-					<tr className="border-b border-black/[0.08] dark:border-white/[0.08]">
-						<th className="text-left py-3 px-3">
-							<input
-								type="checkbox"
-								checked={allSelected}
-								onChange={toggleSelectAllConnections}
-								className="rounded border-black/20 dark:border-white/20 bg-transparent text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer"
-							/>
-						</th>
-						<th className="text-center text-xs font-semibold text-text-muted uppercase tracking-wider pb-3 px-2">
-							#
-						</th>
-						<th className="text-left text-xs font-semibold text-text-muted uppercase tracking-wider pb-3 px-4">
-							Name
-						</th>
-						<th className="text-left text-xs font-semibold text-text-muted uppercase tracking-wider pb-3 px-4">
-							Identity
-						</th>
-						<th className="text-left text-xs font-semibold text-text-muted uppercase tracking-wider pb-3 px-4">
-							Status
-						</th>
-						<th className="text-right text-xs font-semibold text-text-muted uppercase tracking-wider pb-3 px-4">
-							Actions
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{displayConnections.map((conn, index) => (
+		<div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
+			{connections.map((conn, index) => (
+				<div key={conn.id} className="flex min-w-0 items-stretch">
+					<div className="flex-1 min-w-0">
 						<ConnectionRow
-							key={conn.id}
 							connection={conn}
 							proxyPools={proxyPools}
 							isOAuth={isOAuth}
 							isFirst={index === 0}
-							isLast={index === displayConnections.length - 1}
-							onMoveUp={() => handleSwapPriority(index, index - 1)}
-							onMoveDown={() => handleSwapPriority(index, index + 1)}
+							isLast={index === connections.length - 1}
+							onMoveUp={() =>
+								handleSwapPriority(index, index - 1)
+							}
+							onMoveDown={() =>
+								handleSwapPriority(index, index + 1)
+							}
 							onToggleActive={(isActive) =>
 								handleUpdateConnectionStatus(conn.id, isActive)
 							}
 							onUpdateProxy={async (proxyPoolId) => {
 								try {
-									const res = await fetch(`/api/providers/${conn.id}`, {
-										method: "PUT",
-										headers: { "Content-Type": "application/json" },
-										body: JSON.stringify({ proxyPoolId: proxyPoolId || null }),
-									});
+									const res = await fetch(
+										`/api/providers/${conn.id}`,
+										{
+											method: "PUT",
+											headers: {
+												"Content-Type":
+													"application/json",
+											},
+											body: JSON.stringify({
+												proxyPoolId:
+													proxyPoolId || null,
+											}),
+										},
+									);
 									if (res.ok) {
 										setConnections((prev) =>
 											prev.map((c) =>
 												c.id === conn.id
 													? {
 															...c,
-															providerSpecificData: {
-																...c.providerSpecificData,
-																proxyPoolId: proxyPoolId || null,
-															},
+															providerSpecificData:
+																{
+																	...c.providerSpecificData,
+																	proxyPoolId:
+																		proxyPoolId ||
+																		null,
+																},
 														}
 													: c,
 											),
@@ -1053,12 +996,10 @@ export default function ProviderDetailPage() {
 							}}
 							onDelete={() => handleDelete(conn.id)}
 							oneByOneStatus={oneByOneResults[conn.id] || null}
-							isSelected={isSelected(conn.id)}
-							onSelect={() => toggleSelectConnection(conn.id)}
 						/>
-					))}
-				</tbody>
-			</table>
+					</div>
+				</div>
+			))}
 		</div>
 	);
 
@@ -1425,7 +1366,7 @@ export default function ProviderDetailPage() {
 	};
 
 	return (
-		<div data-section="blue" className="flex min-w-0 flex-col gap-6 px-1 sm:gap-8 sm:px-0">
+		<div className="flex min-w-0 flex-col gap-6 px-1 sm:gap-8 sm:px-0">
 			{/* Header */}
 			<div className="min-w-0">
 				<Link
@@ -1437,103 +1378,62 @@ export default function ProviderDetailPage() {
 					</span>
 					Back to Providers
 				</Link>
-				<div
-					className="relative overflow-hidden rounded-3xl p-8 sm:p-10"
-					style={{
-						background: `linear-gradient(135deg, ${providerInfo.color}20 0%, ${providerInfo.color}10 50%, transparent 100%)`,
-					}}
-				>
-					{/* Decorative gradient orbs */}
+				<div className="flex min-w-0 items-center gap-3 sm:gap-4">
 					<div
-						className="absolute -top-24 -right-24 w-64 h-64 rounded-full opacity-20 blur-3xl"
-						style={{ backgroundColor: providerInfo.color }}
-					/>
-					<div
-						className="absolute -bottom-32 -left-32 w-80 h-80 rounded-full opacity-10 blur-3xl"
-						style={{ backgroundColor: providerInfo.color }}
-					/>
-
-					<div className="relative flex min-w-0 items-center gap-5 sm:gap-6">
-						{/* Logo with gradient border */}
-						<div
-							className="relative flex size-16 shrink-0 items-center justify-center rounded-2xl shadow-lg sm:size-20"
-							style={{
-								background: `linear-gradient(135deg, ${providerInfo.color}30, ${providerInfo.color}15)`,
-								border: `2px solid ${providerInfo.color}40`,
-							}}
-						>
-							{headerImgError ? (
-								<span
-									className="text-xl font-bold sm:text-2xl"
-									style={{ color: providerInfo.color }}
+						className="flex size-12 shrink-0 items-center justify-center rounded-lg"
+						style={{ backgroundColor: `${providerInfo.color}15` }}
+					>
+						{headerImgError ? (
+							<span
+								className="text-sm font-bold"
+								style={{ color: providerInfo.color }}
+							>
+								{providerInfo.textIcon ||
+									providerInfo.id.slice(0, 2).toUpperCase()}
+							</span>
+						) : (
+							<Image
+								src={getHeaderIconPath()}
+								alt={providerInfo.name}
+								width={48}
+								height={48}
+								className="max-h-12 max-w-12 rounded-lg object-contain"
+								sizes="48px"
+								onError={() => setHeaderImgError(true)}
+							/>
+						)}
+					</div>
+					<div className="min-w-0">
+						<div className="flex items-center gap-3 flex-wrap">
+							<h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">
+								{providerInfo.name}
+							</h1>
+							{(providerInfo.notice?.apiKeyUrl ||
+								providerInfo.notice?.signupUrl ||
+								providerInfo.website) && (
+								<a
+									href={
+										providerInfo.notice?.apiKeyUrl ||
+										providerInfo.notice?.signupUrl ||
+										providerInfo.website
+									}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="text-xs text-primary hover:underline inline-flex items-center gap-1"
 								>
-									{providerInfo.textIcon ||
-										providerInfo.id.slice(0, 2).toUpperCase()}
-								</span>
-							) : (
-								<Image
-									src={getHeaderIconPath()}
-									alt={providerInfo.name}
-									width={80}
-									height={80}
-									className="max-h-20 max-w-20 rounded-xl object-contain sm:max-h-20 sm:max-w-20"
-									sizes="80px"
-									onError={() => setHeaderImgError(true)}
-								/>
+									<span className="material-symbols-outlined text-sm">
+										open_in_new
+									</span>
+									{providerInfo.notice?.apiKeyUrl
+										? "Get API Key"
+										: "Sign up / Learn more"}
+								</a>
 							)}
 						</div>
-
-						{/* Provider info */}
-						<div className="min-w-0 flex-1">
-							<div className="flex items-center gap-3 flex-wrap mb-2">
-								<h1 className="truncate text-3xl font-bold tracking-tight sm:text-4xl">
-									{providerInfo.name}
-								</h1>
-								{(providerInfo.notice?.apiKeyUrl ||
-									providerInfo.notice?.signupUrl ||
-									providerInfo.website) && (
-									<a
-										href={
-											providerInfo.notice?.apiKeyUrl ||
-											providerInfo.notice?.signupUrl ||
-											providerInfo.website
-										}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors hover:opacity-80"
-										style={{
-											backgroundColor: `${providerInfo.color}20`,
-											color: providerInfo.color,
-											border: `1px solid ${providerInfo.color}30`,
-										}}
-									>
-										<span className="material-symbols-outlined text-sm">
-											open_in_new
-										</span>
-										{providerInfo.notice?.apiKeyUrl
-											? "Get API Key"
-											: "Sign up"}
-									</a>
-								)}
-							</div>
-							<div className="flex items-center gap-4 text-sm text-text-muted">
-								<span className="inline-flex items-center gap-1.5">
-									<span className="material-symbols-outlined text-base">
-										link
-									</span>
-									{connections.length} connection
-									{connections.length === 1 ? "" : "s"}
-								</span>
-								{connections.filter((c) => c.isActive !== false).length > 0 && (
-									<span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-										<span className="material-symbols-outlined text-base">
-											check_circle
-										</span>
-										{connections.filter((c) => c.isActive !== false).length} active
-									</span>
-								)}
-							</div>
-						</div>
+						<p className="text-text-muted">
+							{connections.length} connection
+							{connections.length === 1 ? "" : "s"}
+						</p>
 					</div>
 				</div>
 			</div>
@@ -1574,16 +1474,11 @@ export default function ProviderDetailPage() {
 				<Card>
 					<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 						<div className="min-w-0">
-							<div className="flex items-center gap-2.5 mb-2">
-								<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary">
-									<span className="material-symbols-outlined text-[18px]">api</span>
-								</div>
-								<h2 className="text-base font-semibold tracking-tight">
-									{isAnthropicCompatible
-										? "Anthropic Compatible Details"
-										: "OpenAI Compatible Details"}
-								</h2>
-							</div>
+							<h2 className="text-lg font-semibold">
+								{isAnthropicCompatible
+									? "Anthropic Compatible Details"
+									: "OpenAI Compatible Details"}
+							</h2>
 							<p className="break-all text-sm text-text-muted">
 								{isAnthropicCompatible
 									? "Messages API"
@@ -1667,32 +1562,24 @@ export default function ProviderDetailPage() {
 				<NoAuthProxyCard providerId={providerId} />
 			) : (
 				<Card>
-					{/* Top bar: title (+ bulk delete) + actions */}
 					<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-						<div className="flex flex-wrap items-center gap-3">
-							<div className="section-mark flex items-center justify-center w-11 h-11 rounded-2xl">
-								<span className="material-symbols-outlined text-[24px]">hub</span>
-							</div>
-							<h2 className="text-2xl font-semibold tracking-tight">Connections</h2>
-							{selectedConnectionIds.length > 0 && (
-								<Button
-									size="sm"
-									variant="danger"
-									icon="delete"
-									onClick={handleBulkDelete}
-								>
-									Delete {selectedConnectionIds.length}
-								</Button>
-							)}
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
+						<h2 className="text-lg font-semibold">Connections</h2>
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+							{connections.length > 0 &&
+								proxyPools.length > 0 && (
+									<Button
+										size="sm"
+										variant="secondary"
+										icon="lan"
+										onClick={() =>
+											setShowBulkProxyModal(true)
+										}
+									>
+										Apply Proxy
+									</Button>
+								)}
 							{connections.length > 0 && (
 								<>
-									{proxyPools.length > 0 && (
-										<Button size="sm" variant="secondary" icon="lan" onClick={() => setShowBulkProxyModal(true)}>
-											Apply Proxy
-										</Button>
-									)}
 									<Button
 										size="sm"
 										variant="secondary"
@@ -1700,70 +1587,152 @@ export default function ProviderDetailPage() {
 										onClick={handleRunOneByOneTest}
 										disabled={oneByOneRunning}
 									>
-										{oneByOneRunning ? "Testing..." : "Test One-by-One"}
+										{oneByOneRunning
+											? "Testing Connection One-by-One..."
+											: "Test Connection One-by-One"}
 									</Button>
 									{oneByOneRunning && (
-										<Button size="sm" variant="ghost" icon="stop" onClick={handleStopOneByOneTest} disabled={oneByOneStopping}>
-											{oneByOneStopping ? "Stopping..." : "Stop"}
+										<Button
+											size="sm"
+											variant="ghost"
+											icon="stop"
+											onClick={handleStopOneByOneTest}
+											disabled={oneByOneStopping}
+										>
+											{oneByOneStopping
+												? "Stopping..."
+												: "Stop"}
 										</Button>
 									)}
-									<div className="flex flex-wrap items-center gap-2 pl-1">
-										<span className="text-xs text-text-muted font-medium">Round Robin</span>
-										<Toggle checked={providerStrategy === "round-robin"} onChange={handleRoundRobinToggle} />
-										{providerStrategy === "round-robin" && (
-											<div className="flex items-center gap-1.5">
-												<span className="text-xs text-text-muted">Sticky:</span>
-												<input
-													type="number"
-													min={1}
-													value={providerStickyLimit}
-													onChange={(e) => handleStickyLimitChange(e.target.value)}
-													placeholder="1"
-													className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:border-primary"
-												/>
-											</div>
-										)}
+								</>
+							)}
+							{/* Thinking config */}
+							{/* {thinkingConfig && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-text-muted font-medium">Thinking</span>
+                  <select
+                    value={thinkingMode}
+                    onChange={(e) => handleThinkingModeChange(e.target.value)}
+                    className="text-xs px-2 py-1 border border-border rounded-md bg-background focus:outline-none focus:border-primary"
+                  >
+                    {thinkingConfig.options.map((opt) => (
+                      <option key={opt} value={opt}>{opt.charAt(0).toUpperCase() + opt.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+              )} */}
+							{/* Round Robin toggle */}
+							<div className="flex flex-wrap items-center gap-2">
+								<span className="text-xs text-text-muted font-medium">
+									Round Robin
+								</span>
+								<Toggle
+									checked={providerStrategy === "round-robin"}
+									onChange={handleRoundRobinToggle}
+								/>
+								{providerStrategy === "round-robin" && (
+									<div className="flex items-center gap-1.5">
+										<span className="text-xs text-text-muted">
+											Sticky:
+										</span>
+										<input
+											type="number"
+											min={1}
+											value={providerStickyLimit}
+											onChange={(e) =>
+												handleStickyLimitChange(
+													e.target.value,
+												)
+											}
+											placeholder="1"
+											className="w-14 px-2 py-1 text-xs border border-border rounded-md bg-background focus:outline-none focus:border-primary"
+										/>
 									</div>
-								</>
-							)}
-							{/* Add buttons always visible */}
-							{hasDualAuthModes ? (
-								<>
-									<Button size="sm" icon="lock" variant="secondary" onClick={triggerOAuthConnection}>
-										{oauthConnectionLabel}
-									</Button>
-									<Button size="sm" icon="key" onClick={triggerApiKeyConnection}>
-										{apiKeyConnectionLabel}
-									</Button>
-								</>
-							) : (
-								<>
-									{!isCompatible && providerId === "iflow" && (
-										<Button size="sm" icon="cookie" variant="secondary" onClick={() => setShowIFlowCookieModal(true)}>
-											Cookie
-										</Button>
-									)}
-									<Button size="sm" icon="add" onClick={triggerAddConnection}>
-										{isCompatible ? "Add API Key" : providerId === "iflow" ? "OAuth" : "Add Connection"}
-									</Button>
-								</>
-							)}
+								)}
+							</div>
 						</div>
 					</div>
 
 					{connections.length === 0 ? (
-						<div className="flex items-center gap-3 py-6">
-							<div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0">
-								<span className="material-symbols-outlined text-[18px]">
-									{isOAuth ? "lock" : "key"}
-								</span>
-							</div>
-							<div className="min-w-0">
-								<p className="text-sm text-text-muted">No connections yet</p>
-								{hasDualAuthModes && (
-									<p className="text-xs text-text-muted">
-										Choose {oauthConnectionLabel} or {apiKeyConnectionLabel}.
+						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div className="flex items-center gap-3">
+								<div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 text-primary shrink-0">
+									<span className="material-symbols-outlined text-[18px]">
+										{isOAuth ? "lock" : "key"}
+									</span>
+								</div>
+								<div className="min-w-0">
+									<p className="text-sm text-text-muted">
+										No connections yet
 									</p>
+									{hasDualAuthModes && (
+										<p className="text-xs text-text-muted">
+											Choose {oauthConnectionLabel} or{" "}
+											{apiKeyConnectionLabel}.
+										</p>
+									)}
+								</div>
+							</div>
+							<div className="flex gap-2">
+								{hasDualAuthModes ? (
+									<>
+										<Button
+											size="sm"
+											icon="lock"
+											variant="secondary"
+											onClick={triggerOAuthConnection}
+										>
+											{oauthConnectionLabel}
+										</Button>
+										<Button
+											size="sm"
+											icon="key"
+											onClick={triggerApiKeyConnection}
+										>
+											{apiKeyConnectionLabel}
+										</Button>
+									</>
+								) : (
+									<>
+										{!isCompatible &&
+											providerId === "iflow" && (
+												<Button
+													size="sm"
+													icon="cookie"
+													variant="secondary"
+													onClick={() =>
+														setShowIFlowCookieModal(
+															true,
+														)
+													}
+												>
+													Cookie
+												</Button>
+											)}
+										{providerId === "codex" && (
+											<Button
+												size="sm"
+												icon="playlist_add"
+												variant="secondary"
+												onClick={() =>
+													setShowBulkImportCodex(true)
+												}
+											>
+												{translate("Bulk Add")}
+											</Button>
+										)}
+										<Button
+											size="sm"
+											icon="add"
+											onClick={triggerAddConnection}
+										>
+											{isCompatible
+												? "Add API Key"
+												: providerId === "iflow"
+													? "OAuth"
+													: "Add Connection"}
+										</Button>
+									</>
 								)}
 							</div>
 						</div>
@@ -1772,36 +1741,104 @@ export default function ProviderDetailPage() {
 							{oneByOneSummary && (
 								<div className="mb-4 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted dark:border-white/10 dark:bg-white/[0.03]">
 									<div className="flex flex-wrap items-center gap-3">
-										<span>Total: {oneByOneSummary.total}</span>
-										<span>Completed: {oneByOneSummary.completed}</span>
-										<span>Passed: {oneByOneSummary.passed}</span>
-										<span>Failed: {oneByOneSummary.failed}</span>
+										<span>
+											Total: {oneByOneSummary.total}
+										</span>
+										<span>
+											Completed:{" "}
+											{oneByOneSummary.completed}
+										</span>
+										<span>
+											Passed: {oneByOneSummary.passed}
+										</span>
+										<span>
+											Failed: {oneByOneSummary.failed}
+										</span>
 										{oneByOneSummary.stopped && (
-											<span className="text-amber-600 dark:text-amber-400">Stopped</span>
-										)}
-										{oneByOneRunning && oneByOneCurrentConnectionId && (
-											<span>
-												Running: {connections.find((conn) => conn.id === oneByOneCurrentConnectionId)?.name || oneByOneCurrentConnectionId}
+											<span className="text-amber-600 dark:text-amber-400">
+												Stopped
 											</span>
 										)}
+										{oneByOneRunning &&
+											oneByOneCurrentConnectionId && (
+												<span>
+													Running:{" "}
+													{connections.find(
+														(conn) =>
+															conn.id ===
+															oneByOneCurrentConnectionId,
+													)?.name ||
+														oneByOneCurrentConnectionId}
+												</span>
+											)}
 									</div>
 								</div>
 							)}
 							{connectionsList}
-							{isCollapsible && (
-								<div className="mt-3 flex justify-center">
-									<button
-										type="button"
-										onClick={() => setTableCollapsed((v) => !v)}
-										className="inline-flex items-center gap-1.5 rounded-full border border-black/10 dark:border-white/10 px-4 py-1.5 text-xs font-medium text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-									>
-										<span className="material-symbols-outlined text-[16px]">
-											{tableCollapsed ? "expand_more" : "expand_less"}
-										</span>
-										{tableCollapsed
-											? `Show all ${connections.length}`
-											: `Collapse to ${COLLAPSE_THRESHOLD}`}
-									</button>
+							{!isCompatible && (
+								<div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
+									{providerId === "iflow" && (
+										<Button
+											size="sm"
+											icon="cookie"
+											variant="secondary"
+											onClick={() =>
+												setShowIFlowCookieModal(true)
+											}
+											title="Add connection using browser cookie"
+											className="w-full sm:w-auto"
+										>
+											Cookie
+										</Button>
+									)}
+									{providerId === "codex" && (
+										<Button
+											size="sm"
+											icon="playlist_add"
+											variant="secondary"
+											onClick={() =>
+												setShowBulkImportCodex(true)
+											}
+											title={translate(
+												"Bulk import codex accounts from JSON",
+											)}
+											className="w-full sm:w-auto"
+										>
+											{translate("Bulk Add")}
+										</Button>
+									)}
+									{hasDualAuthModes ? (
+										<>
+											<Button
+												size="sm"
+												icon="lock"
+												variant="secondary"
+												onClick={triggerOAuthConnection}
+												className="w-full sm:w-auto"
+											>
+												{oauthConnectionLabel}
+											</Button>
+											<Button
+												size="sm"
+												icon="key"
+												onClick={
+													triggerApiKeyConnection
+												}
+												className="w-full sm:w-auto"
+											>
+												{apiKeyConnectionLabel}
+											</Button>
+										</>
+									) : (
+										<Button
+											size="sm"
+											icon="add"
+											onClick={triggerAddConnection}
+											className="w-full sm:w-auto"
+										>
+											Add
+										</Button>
+									)}
 								</div>
 							)}
 						</>
@@ -1812,12 +1849,9 @@ export default function ProviderDetailPage() {
 			{/* Models */}
 			<Card>
 				<div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex items-center gap-2.5">
-						<div className="section-mark flex items-center justify-center w-11 h-11 rounded-2xl">
-							<span className="material-symbols-outlined text-[24px]">deployed_code</span>
-						</div>
-						<h2 className="text-2xl font-semibold tracking-tight">Available Models</h2>
-					</div>
+					<h2 className="text-lg font-semibold">
+						{"Available Models"}
+					</h2>
 					{!isCompatible &&
 						(() => {
 							const allIds = [
@@ -1958,6 +1992,14 @@ export default function ProviderDetailPage() {
 						setShowAddCustomModel(false);
 					}}
 					onClose={() => setShowAddCustomModel(false)}
+				/>
+			)}
+
+			{providerId === "codex" && (
+				<BulkImportCodexModal
+					isOpen={showBulkImportCodex}
+					onClose={() => setShowBulkImportCodex(false)}
+					onSuccess={fetchConnections}
 				/>
 			)}
 
