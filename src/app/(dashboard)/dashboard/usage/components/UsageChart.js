@@ -49,20 +49,24 @@ export default function UsageChart({ period = "7d" }) {
 	const hasData = data.some((d) => d.tokens > 0 || d.cost > 0);
 
 	return (
-		<Card className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
-			<div className="grid w-full grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-alt p-1 sm:w-auto sm:self-start">
-				<button
-					onClick={() => setViewMode("tokens")}
-					className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-main hover:bg-bg-hover"}`}
-				>
-					Tokens
-				</button>
-				<button
-					onClick={() => setViewMode("cost")}
-					className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "cost" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text-main hover:bg-bg-hover"}`}
-				>
-					Cost
-				</button>
+		<Card padding="none" className="flex min-w-0 flex-col">
+			{/* Header */}
+			<div className="flex flex-col gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex items-center gap-2.5">
+					<span className="section-dot" />
+					<h3 className="text-ink font-semibold tracking-tight">
+						Volume over time
+					</h3>
+				</div>
+				<SegmentedControl
+					options={[
+						{ value: "tokens", label: "Tokens" },
+						{ value: "cost", label: "Cost" },
+					]}
+					value={viewMode}
+					onChange={setViewMode}
+					size="sm"
+				/>
 			</div>
 
 			{/* Chart body */}
