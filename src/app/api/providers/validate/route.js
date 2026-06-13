@@ -343,6 +343,8 @@ export async function POST(request) {
         }
 
         case "deepseek":
+        case "bai":
+        case "qiniu":
         case "groq":
         case "xai":
         case "mistral":
@@ -361,9 +363,14 @@ export async function POST(request) {
         case "chutes":
         case "xiaomi-mimo":
         case "xiaomi-tokenplan":
+        case "canopywave":
+        case "swiftrouter":
+        case "routeway":
         case "nvidia": {
           const endpoints = {
             deepseek: "https://api.deepseek.com/models",
+            bai: "https://api.b.ai/v1/models",
+            qiniu: "https://api.qnaigc.com/v1/models",
             groq: "https://api.groq.com/openai/v1/models",
             xai: "https://api.x.ai/v1/models",
             mistral: "https://api.mistral.ai/v1/models",
@@ -382,7 +389,10 @@ export async function POST(request) {
             chutes: "https://llm.chutes.ai/v1/models",
             nvidia: "https://integrate.api.nvidia.com/v1/models",
             "xiaomi-mimo": "https://api.xiaomimimo.com/v1/models",
-            "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`
+            "xiaomi-tokenplan": `${resolveXiaomiTokenplanBaseUrl({ providerSpecificData })}/models`,
+            canopywave: "https://inference.canopywave.io/v1/models",
+            swiftrouter: "https://api.swiftrouter.com/v1/models",
+            routeway: "https://api.routeway.ai/v1/models"
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;

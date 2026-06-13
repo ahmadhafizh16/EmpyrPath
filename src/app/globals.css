@@ -24,26 +24,31 @@
   --color-brand-900: #4d1e12;
 
   /* Primary (legacy alias for backward compat with existing components) */
-  --color-primary: var(--color-brand-500);
-  --color-primary-hover: var(--color-brand-600);
+  /* Remapped: legacy "primary" was coral; MiniMax primary CTA is ink (black).
+     Every text-primary / bg-primary / border-primary call-site (~700) now
+     reads as ink, matching DESIGN.md's "black pill primary" rule. */
+  --color-primary: var(--color-ink);
+  --color-primary-hover: var(--color-charcoal);
 
   /* Surfaces & backgrounds (light) */
-  --color-bg: #FDFAF6;
-  --color-bg-alt: #F7F3EE;
-  --color-surface: #ffffff;
-  --color-surface-2: #f4f4f5;
-  --color-surface-3: #e7e7e9;
-  --color-sidebar: rgba(244, 241, 236, 0.85);
+  /* Remapped to MiniMax neutrals defined below. Coral surfaces are gone. */
+  --color-bg: var(--color-canvas);
+  --color-bg-alt: var(--color-mm-surface);
+  --color-bg-hover: var(--color-mm-surface);
+  --color-surface: var(--color-canvas);
+  --color-surface-2: var(--color-mm-surface);
+  --color-surface-3: var(--color-hairline-soft);
+  --color-sidebar: rgba(247, 247, 247, 0.92);
 
   /* Borders */
-  --color-border: #e5e7eb;
-  --color-border-subtle: #f1f1f3;
+  --color-border: var(--color-hairline);
+  --color-border-subtle: var(--color-hairline-soft);
 
   /* Text */
-  --color-text: #0a0a0a;
-  --color-text-main: #0a0a0a;
-  --color-text-muted: #6B7280;
-  --color-text-subtle: #9CA3AF;
+  --color-text: var(--color-ink);
+  --color-text-main: var(--color-ink);
+  --color-text-muted: var(--color-steel);
+  --color-text-subtle: var(--color-stone);
 
   /* Status */
   --color-danger: #cf222e;
@@ -65,6 +70,55 @@
     0 12px 36px -8px rgba(15,23,42,0.10);
   --shadow-focus: 0 0 0 3px rgba(229,106,74,0.18);
 
+  /* ============================================================
+     MiniMax design system (DESIGN.md) — neutral scale + brand
+     Additive: coexists with the coral theme above.
+     Neutrals invert in .dark; brand product colors are fixed.
+     ============================================================ */
+  --color-ink: #0a0a0a;          /* primary headline + CTA text */
+  --color-ink-strong: #000000;   /* max-contrast hero/promo */
+  --color-canvas: #ffffff;       /* page bg + card surface */
+  --color-charcoal: #222222;     /* body text */
+  --color-slate: #45515e;        /* secondary text */
+  --color-steel: #5f5f5f;        /* tertiary text, inactive nav */
+  --color-stone: #8e8e93;        /* muted captions */
+  --color-muted: #a8aab2;        /* de-emphasized labels */
+  --color-hairline: #e5e7eb;     /* 1px borders + dividers */
+  --color-hairline-soft: #eaecf0;
+  --color-mm-surface: #f7f8fa;   /* subtle section bg */
+  --color-primary-soft: #181e25; /* dark mode primary accent */
+
+  /* Brand product colors — fixed across modes */
+  --color-brand-coral-mm: #ff5530;
+  --color-brand-magenta: #ea5ec1;
+  --color-brand-blue-mm: #1456f0;
+  --color-brand-blue-mid: #3b82f6;
+  --color-brand-blue-700: #17437d;
+  --color-brand-purple: #a855f7;
+  --color-brand-cyan-mm: #3daeff;
+
+  /* Section identity (dashboard) — points each top-level area at one brand
+     color. Gradient pairs are the panel sweep used by PageHero. */
+  --section-coral-from: #ff5530;
+  --section-coral-to:   #ea5ec1;
+  --section-magenta-from: #ea5ec1;
+  --section-magenta-to:   #a855f7;
+  --section-blue-from:  #1456f0;
+  --section-blue-to:    #3daeff;
+  --section-purple-from: #a855f7;
+  --section-purple-to:   #1456f0;
+  --section-cyan-from:  #3daeff;
+  --section-cyan-to:    #1456f0;
+  --section-ink-from:   #0a0a0a;
+  --section-ink-to:     #222222;
+
+  --color-mm-success-bg: #e8ffea;
+  --color-mm-success-text: #1ba673;
+
+  --radius-full: 9999px;
+  --radius-hero: 32px;
+  --radius-mm-xl: 16px;
+
   color-scheme: light;
 }
 
@@ -81,24 +135,25 @@
   --color-brand-800: #7a2f1d;
   --color-brand-900: #4d1e12;
 
-  --color-primary: #E56A4A;
-  --color-primary-hover: #cc5236;
+  --color-primary: var(--color-ink);
+  --color-primary-hover: var(--color-charcoal);
 
-  /* Surfaces (dark - Claude-like neutral warm) */
-  --color-bg: #1a1a1a;
-  --color-bg-alt: #1F1F1E;
-  --color-surface: #262626;
-  --color-surface-2: #303030;
-  --color-surface-3: #3a3a3a;
-  --color-sidebar: rgba(30, 30, 30, 0.85);
+  /* Surfaces (dark) — remapped to MiniMax dark neutrals (defined below). */
+  --color-bg: var(--color-canvas);
+  --color-bg-alt: var(--color-mm-surface);
+  --color-bg-hover: var(--color-mm-surface);
+  --color-surface: var(--color-canvas);
+  --color-surface-2: var(--color-mm-surface);
+  --color-surface-3: var(--color-hairline);
+  --color-sidebar: rgba(38, 38, 38, 0.92);
 
-  --color-border: #333333;
-  --color-border-subtle: #2a2a2a;
+  --color-border: var(--color-hairline);
+  --color-border-subtle: var(--color-hairline-soft);
 
-  --color-text: #ededed;
-  --color-text-main: #ededed;
-  --color-text-muted: #9ca3af;
-  --color-text-subtle: #6b7280;
+  --color-text: var(--color-ink);
+  --color-text-main: var(--color-ink);
+  --color-text-muted: var(--color-steel);
+  --color-text-subtle: var(--color-stone);
 
   --color-danger: #ef4444;
   --color-success: #22c55e;
@@ -113,6 +168,21 @@
     0 1px 2px rgba(0,0,0,0.4),
     0 16px 48px -8px rgba(0,0,0,0.55);
   --shadow-focus: 0 0 0 3px rgba(229, 106, 74, 0.18);
+
+  /* MiniMax neutrals — inverted for dark mode; brand colors unchanged */
+  --color-ink: #f5f5f5;
+  --color-ink-strong: #ffffff;
+  --color-canvas: #1f1f1f;
+  --color-charcoal: #d4d4d4;
+  --color-slate: #a3a3a3;
+  --color-steel: #8a8a8a;
+  --color-stone: #6e6e6e;
+  --color-muted: #5a5a5a;
+  --color-hairline: #383838;
+  --color-hairline-soft: #2c2c2c;
+  --color-mm-surface: #262626;
+  --color-mm-success-bg: #14331f;
+  --color-mm-success-text: #4ade80;
 
   color-scheme: dark;
 }
@@ -153,6 +223,7 @@ select {
   /* Semantic */
   --color-bg: var(--color-bg);
   --color-bg-alt: var(--color-bg-alt);
+  --color-bg-hover: var(--color-bg-hover);
   --color-surface: var(--color-surface);
   --color-surface-2: var(--color-surface-2);
   --color-surface-3: var(--color-surface-3);
@@ -161,13 +232,27 @@ select {
   --color-border-subtle: var(--color-border-subtle);
   --color-text: var(--color-text);
   --color-text-main: var(--color-text-main);
-  --color-text-muted: var(--color-text-muted);
+  --color-text-muted: var(--color-muted);
   --color-text-subtle: var(--color-text-subtle);
   --color-accent: var(--color-brand-500);
   --color-danger: var(--color-danger);
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-info: var(--color-info);
+
+  /* MiniMax neutrals (DESIGN.md) — expose to Tailwind as bg-ink, text-charcoal, etc. */
+  --color-ink: var(--color-ink);
+  --color-ink-strong: var(--color-ink-strong);
+  --color-canvas: var(--color-canvas);
+  --color-charcoal: var(--color-charcoal);
+  --color-slate: var(--color-slate);
+  --color-steel: var(--color-steel);
+  --color-stone: var(--color-stone);
+  --color-muted: var(--color-muted);
+  --color-hairline: var(--color-hairline);
+  --color-hairline-soft: var(--color-hairline-soft);
+  --color-mm-surface: var(--color-mm-surface);
+  --color-primary-soft: var(--color-primary-soft);
 
   /* Static fallbacks (explicit per-mode usage if needed) */
   --color-bg-light: #FCFBF9;
@@ -194,32 +279,67 @@ select {
   --shadow-elev: var(--shadow-elev);
   --shadow-focus: var(--shadow-focus);
 
-  /* Font - Inter primary, Apple system fallback */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, sans-serif;
+  /* Font — DM Sans is now primary across the app per DESIGN.md.
+     `--font-dm-sans` is the next/font variable wired in src/app/layout.js.
+     Inter remains as a fallback while the DM Sans webfont loads. */
+  --font-sans: var(--font-dm-sans), 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+
+  /* MiniMax design system (DESIGN.md) — registered as Tailwind utilities */
+  --color-ink: var(--color-ink);
+  --color-ink-strong: var(--color-ink-strong);
+  --color-canvas: var(--color-canvas);
+  --color-charcoal: var(--color-charcoal);
+  --color-slate: var(--color-slate);
+  --color-steel: var(--color-steel);
+  --color-stone: var(--color-stone);
+  --color-muted: var(--color-muted);
+  --color-hairline: var(--color-hairline);
+  --color-hairline-soft: var(--color-hairline-soft);
+  --color-mm-surface: var(--color-mm-surface);
+  --color-brand-coral-mm: var(--color-brand-coral-mm);
+  --color-brand-magenta: var(--color-brand-magenta);
+  --color-brand-blue-mm: var(--color-brand-blue-mm);
+  --color-brand-blue-mid: var(--color-brand-blue-mid);
+  --color-brand-blue-700: var(--color-brand-blue-700);
+  --color-brand-cyan-mm: var(--color-brand-cyan-mm);
+  --color-brand-purple: var(--color-brand-purple);
+  --color-mm-success-bg: var(--color-mm-success-bg);
+  --color-mm-success-text: var(--color-mm-success-text);
+
+  --radius-full: var(--radius-full);
+  --radius-hero: var(--radius-hero);
+  --radius-mm-xl: var(--radius-mm-xl);
+
+  /* DM Sans display face for MiniMax surfaces */
+  --font-display: var(--font-dm-sans), 'Inter', system-ui, sans-serif;
 }
 
 /* Base */
+html {
+  background-color: #0a0a0a;
+}
+
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text-main);
+  background-color: #0a0a0a;
+  color: #f5f5f5;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Selection - brand-tinted */
+/* Selection - ink-tinted (neutral, matches MiniMax canvas) */
 ::selection {
-  background-color: rgba(229, 106, 74, 0.25);
-  color: var(--color-primary);
+  background-color: rgba(26, 26, 26, 0.12);
+  color: var(--color-ink);
 }
 .dark ::selection {
-  background-color: rgba(229, 106, 74, 0.3);
-  color: var(--color-brand-300);
+  background-color: rgba(255, 255, 255, 0.18);
+  color: var(--color-ink);
 }
 
 /* iOS keyboard accent */
 input, textarea {
-  accent-color: var(--color-primary);
+  accent-color: var(--color-ink);
 }
 
 /* Scrollbar (custom-scrollbar utility kept for compat) */
@@ -230,29 +350,29 @@ input, textarea {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(156, 163, 175, 0.3);
+  background-color: rgba(128, 128, 128, 0.3);
   border-radius: 20px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-primary);
+  background-color: var(--color-steel);
 }
 
-/* Thin horizontal scrollbar - brand colored */
+/* Thin horizontal scrollbar - neutral */
 .scroll-thin-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
 }
 .dark .scroll-thin-x {
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: rgba(160, 160, 160, 0.4) transparent;
 }
 .scroll-thin-x::-webkit-scrollbar { height: 3px; }
 .scroll-thin-x::-webkit-scrollbar-track { background: transparent; }
 .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(128, 128, 128, 0.5);
   border-radius: 3px;
 }
 .dark .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: rgba(160, 160, 160, 0.4);
 }
 
 /* Reusable elevated card */
@@ -372,6 +492,28 @@ button {
   50% { opacity: 0.7; transform: scale(1.05); }
 }
 .animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
+
+/* Login brand panel — animated coral gradient drift (DESIGN.md vibrant card) */
+@keyframes brandGradientDrift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.animate-brand-gradient {
+  background-size: 200% 200%;
+  animation: brandGradientDrift 14s ease-in-out infinite;
+}
+
+/* Provider logo marquee — continuous horizontal scroll */
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marqueeScroll 28s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-brand-gradient, .animate-marquee { animation: none; }
+}
 
 /* CTA shimmer + glow pulse */
 @keyframes ctaShimmer {
@@ -494,3 +636,134 @@ button {
   border-top: 1px solid var(--color-border);
   margin: 1.5rem 0;
 }
+
+/* ============================================================
+   Dashboard sections — vibrant identity utilities
+   Each top-level dashboard area carries a section color (coral,
+   magenta, blue, purple, cyan, ink). Containers opt in with
+   data-section="<name>"; the utilities below resolve relative
+   to the container's section via CSS custom properties.
+   ============================================================ */
+
+/* Section color resolver: each [data-section] container exposes
+   --sx-from / --sx-to / --sx-solid / --sx-tint for descendants. */
+[data-section="coral"]   { --sx-from: var(--section-coral-from);   --sx-to: var(--section-coral-to);   --sx-solid: var(--color-brand-coral-mm); }
+[data-section="magenta"] { --sx-from: var(--section-magenta-from); --sx-to: var(--section-magenta-to); --sx-solid: var(--color-brand-magenta); }
+[data-section="blue"]    { --sx-from: var(--section-blue-from);    --sx-to: var(--section-blue-to);    --sx-solid: var(--color-brand-blue-mm); }
+[data-section="purple"]  { --sx-from: var(--section-purple-from);  --sx-to: var(--section-purple-to);  --sx-solid: var(--color-brand-purple); }
+[data-section="cyan"]    { --sx-from: var(--section-cyan-from);    --sx-to: var(--section-cyan-to);    --sx-solid: var(--color-brand-cyan-mm); }
+[data-section="ink"]     { --sx-from: var(--section-ink-from);     --sx-to: var(--section-ink-to);     --sx-solid: var(--color-ink); }
+
+/* Identity surfaces — the 32px gradient `product-card` per DESIGN.md.
+   `section-hero` is the page identity panel; `section-mark` is a small
+   gradient chip for inline use (e.g. icon mark in a card header). */
+.section-hero {
+  background: linear-gradient(120deg, var(--sx-from) 0%, var(--sx-to) 100%);
+  background-size: 200% 200%;
+  animation: brandGradientDrift 18s ease-in-out infinite;
+  color: #ffffff;
+}
+.section-mark {
+  background: linear-gradient(135deg, var(--sx-from), var(--sx-to));
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+/* Vibrant interaction tints. Keep alphas conservative on default cards
+   (DESIGN.md: white cards stay flat with hairline) and stronger on
+   accent surfaces. */
+.section-hover-card {
+  transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+}
+.section-hover-card:hover {
+  border-color: color-mix(in srgb, var(--sx-solid) 45%, transparent);
+  background-color: color-mix(in srgb, var(--sx-solid) 5%, var(--color-canvas));
+}
+.section-hover-row:hover {
+  background-color: color-mix(in srgb, var(--sx-solid) 6%, var(--color-canvas));
+}
+
+/* Active sidebar nav — section-tinted pill */
+.section-nav-active {
+  background-color: color-mix(in srgb, var(--sx-solid) 10%, transparent);
+  color: var(--sx-solid);
+}
+
+/* Inline accent text + dot helpers */
+.section-text { color: var(--sx-solid); }
+.section-dot {
+  display: inline-block;
+  width: .375rem;
+  height: .375rem;
+  border-radius: 9999px;
+  background-color: var(--sx-solid);
+}
+
+/* Soft ambient glow used by PageHero corners (color-only; no shadow). */
+.section-glow-1 {
+  background: radial-gradient(circle at 18% 88%, rgba(255,255,255,0.20), transparent 55%),
+              radial-gradient(circle at 88% 12%, rgba(0,0,0,0.22), transparent 60%);
+}
+
+/* Subtle dot grid pattern for dark content areas */
+.bg-pattern-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Subtle diagonal lines pattern */
+.bg-pattern-lines {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.02) 10px,
+    rgba(255, 255, 255, 0.02) 11px
+  );
+}
+
+/* Background utility: always-dark ink, immune to .dark mode inversion.
+   Use for page shells, sidebars, headers where the surface must stay
+   near-black regardless of the text-color ink token. */
+.bg-ink-surface {
+  background-color: #0a0a0a;
+}
+.bg-sidebar-surface {
+  background-color: #1c1c1c;
+}
+.bg-header-surface {
+  background-color: #1c1c1c;
+}
+
+/* Text utilities for dark surfaces — always light, regardless of mode.
+   Mirrors the inverted tokens: ink→f5f5f5, canvas→1f1f1f, charcoal→d4d4d4,
+   steel→8a8a8a, stone→6e6e6e, hairline→383838, mm-surface→262626. */
+.text-on-dark {
+  color: #f5f5f5;
+}
+.text-on-dark-muted {
+  color: #8a8a8a;
+}
+.text-on-dark-dim {
+  color: #6e6e6e;
+}
+.text-on-dark-ink-strong {
+  color: #ffffff;
+}
+.text-on-dark-canvas {
+  color: #1f1f1f;
+}
+.border-on-dark {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.bg-on-dark-surface {
+  background-color: #262626;
+}
+.bg-on-dark-hover {
+  background-color: #2c2c2c;
+}
+.bg-on-dark-hairline {
+  background-color: #383838;
+}
+

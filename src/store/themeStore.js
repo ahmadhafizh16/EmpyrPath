@@ -6,24 +6,22 @@ import { THEME_CONFIG } from "@/shared/constants/config";
 
 const useThemeStore = create(
   persist(
-    (set, get) => ({
-      theme: THEME_CONFIG.defaultTheme,
+    (set) => ({
+      theme: "dark",
 
-      setTheme: (theme) => {
-        set({ theme });
-        applyTheme(theme);
+      setTheme: () => {
+        // Dark-only: ignore theme changes
+        applyTheme("dark");
       },
 
       toggleTheme: () => {
-        const currentTheme = get().theme;
-        const newTheme = currentTheme === "dark" ? "light" : "dark";
-        set({ theme: newTheme });
-        applyTheme(newTheme);
+        // Dark-only: no-op
+        set({ theme: "dark" });
+        applyTheme("dark");
       },
 
       initTheme: () => {
-        const theme = get().theme;
-        applyTheme(theme);
+        applyTheme("dark");
       },
     }),
     {

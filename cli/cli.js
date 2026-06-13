@@ -47,6 +47,22 @@ const { ensureSqliteRuntime, buildEnvWithRuntime } = require("./hooks/sqliteRunt
 const { ensureTrayRuntime } = require("./hooks/trayRuntime");
 const args = process.argv.slice(2);
 
+// Subcommand dispatch — runs before any server-launch / self-heal logic so
+// commands like `9router admin add` exit cleanly without starting the daemon.
+// The handler returns true when it consumed the argv; we exit immediately so
+// downstream flag parsing (--port, --host, etc.) doesn't misinterpret them.
+if (args[0] === "admin") {
+  const { maybeHandleAdminCommand } = require("./src/cli/commands/admin");
+  maybeHandleAdminCommand(args).then(
+    () => process.exit(process.exitCode || 0),
+    (err) => {
+      console.error(err && err.stack || err);
+      process.exit(1);
+    }
+  );
+  return;
+}
+
 // Self-heal SQLite runtime deps (sql.js + better-sqlite3) into ~/.9router/runtime
 // so the server can resolve them via NODE_PATH. Best-effort — sql.js is required,
 // better-sqlite3 is optional. Logs to stderr only on failure.

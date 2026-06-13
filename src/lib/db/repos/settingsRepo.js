@@ -36,6 +36,10 @@ const DEFAULT_SETTINGS = {
   rtkEnabled: true,
   cavemanEnabled: false,
   cavemanLevel: "full",
+  // Public self-service registration on /api/auth/register. Defaults true so
+  // first-run remains friction-less; flip to false to lock down a deployed
+  // instance (admin accounts can still be added via the 9router CLI).
+  allowSignup: true,
 };
 
 async function readRaw() {

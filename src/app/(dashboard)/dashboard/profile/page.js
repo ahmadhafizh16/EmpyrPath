@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Button, Toggle, Input } from "@/shared/components";
+import { Card, Button, Toggle, Input, PageHero } from "@/shared/components";
+import { SECTIONS } from "@/shared/constants/dashboardSections";
 import { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
-import { useTheme } from "@/shared/hooks/useTheme";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
@@ -22,7 +22,6 @@ function getLocaleFromCookie() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { theme, setTheme, isDark } = useTheme();
   const [locale, setLocale] = useState("en");
   const [langOpen, setLangOpen] = useState(false);
   const [shutdownOpen, setShutdownOpen] = useState(false);
@@ -562,8 +561,15 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-0">
+    <div data-section={SECTIONS.profile.color} className="max-w-2xl mx-auto px-4 sm:px-0">
       <div className="flex flex-col gap-6">
+        <PageHero
+          section={SECTIONS.profile.color}
+          eyebrow={SECTIONS.profile.eyebrow}
+          title={SECTIONS.profile.title}
+          description={SECTIONS.profile.description}
+          icon={SECTIONS.profile.icon}
+        />
         {/* Local Mode Info */}
         <Card>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -575,26 +581,6 @@ export default function ProfilePage() {
                 <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
                 <p className="text-sm text-text-muted">Running on your machine</p>
               </div>
-            </div>
-            <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
-              {["light", "dark", "system"].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setTheme(option)}
-                  className={cn(
-                    "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
-                    theme === option
-                      ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-                      : "text-text-muted hover:text-text-main"
-                  )}
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
-                  </span>
-                  <span className="capitalize text-xs sm:text-sm">{option}</span>
-                </button>
-              ))}
             </div>
           </div>
           <div className="flex flex-col gap-3 pt-4 border-t border-border">

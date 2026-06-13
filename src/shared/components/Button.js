@@ -3,18 +3,20 @@
 import { cn } from "@/shared/utils/cn";
 
 const variants = {
-  primary: "bg-brand-500 hover:bg-brand-600 text-white shadow-sm disabled:bg-surface-3 disabled:text-text-muted",
-  secondary: "bg-surface-2 hover:bg-surface-3 text-text-main border border-border disabled:opacity-50",
-  outline: "border border-border text-text-main hover:bg-surface-2 hover:border-brand-500/40",
-  ghost: "text-text-muted hover:bg-surface-2 hover:text-text-main",
-  danger: "bg-red-500 hover:bg-red-600 text-white shadow-sm disabled:bg-surface-3 disabled:text-text-muted",
-  success: "bg-green-600 hover:bg-green-700 text-white shadow-sm disabled:bg-surface-3 disabled:text-text-muted",
+  primary: "bg-ink hover:bg-charcoal text-canvas disabled:bg-hairline disabled:text-stone",
+  secondary: "bg-transparent text-ink border border-ink hover:bg-mm-surface disabled:opacity-50",
+  outline: "border border-hairline text-ink hover:bg-mm-surface hover:border-ink",
+  ghost: "text-steel hover:bg-mm-surface hover:text-ink",
+  danger: "bg-danger hover:opacity-90 text-white disabled:bg-hairline disabled:text-stone",
+  success: "bg-[var(--color-mm-success-text)] hover:opacity-90 text-white disabled:bg-hairline disabled:text-stone",
 };
 
+// All buttons are fully pill-shaped per DESIGN.md (rounded-full); only the
+// height/padding/text-size step changes between sizes.
 const sizes = {
-  sm: "h-7 px-3 text-xs rounded-[8px]",
-  md: "h-9 px-4 text-sm rounded-[10px]",
-  lg: "h-11 px-6 text-sm rounded-[10px]",
+  sm: "h-8 px-4 text-xs rounded-full",
+  md: "h-10 px-5 text-sm rounded-full",
+  lg: "h-11 px-6 text-sm rounded-full",
 };
 
 export default function Button({

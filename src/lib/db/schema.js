@@ -27,6 +27,21 @@ export const TABLES = {
       data: "TEXT NOT NULL",
     },
   },
+  users: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      email: "TEXT UNIQUE NOT NULL",
+      passwordHash: "TEXT NOT NULL",
+      role: "TEXT NOT NULL DEFAULT 'user'",
+      name: "TEXT",
+      isActive: "INTEGER DEFAULT 1",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email)",
+    ],
+  },
   providerConnections: {
     columns: {
       id: "TEXT PRIMARY KEY",
