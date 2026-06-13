@@ -2,8 +2,11 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
+import { UsageStats, RequestLogger, CardSkeleton, SegmentedControl, PageHero } from "@/shared/components";
+import { SECTIONS } from "@/shared/constants/dashboardSections";
 import RequestDetailsTab from "./components/RequestDetailsTab";
+
+const S = SECTIONS.usage;
 
 const PERIODS = [
   { value: "today", label: "Today" },
@@ -40,7 +43,14 @@ function UsageContent() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+    <div data-section={S.color} className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <PageHero
+        section={S.color}
+        eyebrow={S.eyebrow}
+        title={S.title}
+        description={S.description}
+        icon={S.icon}
+      />
       {/* Tabs + period selector on same row */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <SegmentedControl

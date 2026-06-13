@@ -11,7 +11,9 @@ import {
   Modal,
   Select,
   Toggle,
+  PageHero,
 } from "@/shared/components";
+import { SECTIONS } from "@/shared/constants/dashboardSections";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
@@ -316,7 +318,15 @@ export default function ProvidersPage() {
     anthropicCompatibleProviders.length > 0;
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+    <div data-section={SECTIONS.providers.color} className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <PageHero
+        section={SECTIONS.providers.color}
+        eyebrow={SECTIONS.providers.eyebrow}
+        title={SECTIONS.providers.title}
+        description={SECTIONS.providers.description}
+        icon={SECTIONS.providers.icon}
+      />
+
       {!hasAnyResult && (
         <div className="text-center py-8 border border-dashed border-border rounded-xl">
           <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">

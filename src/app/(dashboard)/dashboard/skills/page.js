@@ -1,6 +1,7 @@
 "use client";
 
-import { Card, Badge } from "@/shared/components";
+import { Card, Badge, PageHero } from "@/shared/components";
+import { SECTIONS } from "@/shared/constants/dashboardSections";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import {
   SKILLS,
@@ -8,6 +9,8 @@ import {
   getSkillRawUrl,
   getSkillBlobUrl,
 } from "@/shared/constants/skills";
+
+const S = SECTIONS.skills;
 
 function CopyButton({ value, label = "Copy link" }) {
   const { copied, copy } = useCopyToClipboard(2000);
@@ -74,7 +77,14 @@ function SkillRow({ skill }) {
 
 export default function SkillsPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div data-section={S.color} className="max-w-4xl mx-auto space-y-6">
+      <PageHero
+        section={S.color}
+        eyebrow={S.eyebrow}
+        title={S.title}
+        description={S.description}
+        icon={S.icon}
+      />
       <Card padding="md">
         <div className="text-xs text-text-muted mb-2">Paste this to your AI:</div>
         <div className="px-3 py-2 rounded bg-surface-2 font-mono text-[12px] text-text-main">

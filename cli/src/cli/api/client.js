@@ -390,6 +390,27 @@ async function resetCliToolSettings(tool) {
 }
 
 // ============================================================================
+// USERS API
+// ============================================================================
+
+/**
+ * List dashboard users.
+ * @returns {Promise<Object>} { success, data: { users } }
+ */
+async function getUsers() {
+  return makeRequest("GET", "/api/users");
+}
+
+/**
+ * Create a dashboard user with an explicit role (admin provisioning).
+ * @param {Object} data - { email, password, name?, role }
+ * @returns {Promise<Object>} { success, data: { user } }
+ */
+async function createUser(data) {
+  return makeRequest("POST", "/api/users", data);
+}
+
+// ============================================================================
 // SETTINGS API
 // ============================================================================
 
@@ -528,7 +549,10 @@ module.exports = {
   // Settings
   getSettings,
   updateSettings,
-  
+
+  // Users (admin provisioning)
+  getUsers,
+  createUser,
   // Tunnel
   getTunnelStatus,
   enableTunnel,

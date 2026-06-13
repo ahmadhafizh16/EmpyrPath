@@ -5,9 +5,12 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, Toggle, ConfirmModal } from "@/shared/components";
+import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, Toggle, ConfirmModal, PageHero } from "@/shared/components";
+import { SECTIONS } from "@/shared/constants/dashboardSections";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+
+const S = SECTIONS.combos;
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -137,36 +140,36 @@ export default function CombosPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold">Combos</h1>
-          <p className="text-sm text-text-muted mt-1">
-            Create model combos with fallback support
-          </p>
-        </div>
-        <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
-          Create Combo
-        </Button>
-      </div>
+    <div data-section={S.color} className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <PageHero
+        section={S.color}
+        eyebrow={S.eyebrow}
+        title={S.title}
+        description={S.description}
+        icon={S.icon}
+        actions={
+          <Button icon="add" onClick={() => setShowCreateModal(true)} variant="secondary">
+            Create Combo
+          </Button>
+        }
+      />
 
       {/* Combos List */}
       {combos.length === 0 ? (
         <Card>
           <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
+            <div className="section-mark inline-flex items-center justify-center w-16 h-16 rounded-full mb-4">
               <span className="material-symbols-outlined text-[32px]">layers</span>
             </div>
-            <p className="text-text-main font-medium mb-1">No combos yet</p>
-            <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
+            <p className="text-ink font-semibold tracking-tight mb-1">No combos yet</p>
+            <p className="text-sm text-steel mb-5">Stack models with weighted fallback and round-robin.</p>
             <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
               Create Combo
             </Button>
           </div>
         </Card>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
           {combos.map((combo) => (
             <ComboCard
               key={combo.id}
@@ -216,26 +219,26 @@ export default function CombosPage() {
 
 function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled, onToggleRoundRobin }) {
   return (
-    <Card padding="sm" className="group">
+    <Card padding="sm" section="purple" className="group">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
+          <div className="section-mark size-9 rounded-xl flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[18px]">layers</span>
           </div>
           <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
+            <code className="block truncate font-mono text-sm font-semibold text-ink">{combo.name}</code>
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
               {combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
+                <span className="text-xs text-stone italic">No models</span>
               ) : (
                 combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="max-w-full truncate rounded bg-black/5 px-1.5 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5 sm:max-w-[220px]">
+                  <code key={index} className="max-w-full truncate rounded-md bg-mm-surface px-1.5 py-0.5 font-mono text-[11px] text-slate sm:max-w-[220px]">
                     {model}
                   </code>
                 ))
               )}
               {combo.models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
+                <span className="text-[11px] font-medium text-steel">+{combo.models.length - 3} more</span>
               )}
             </div>
           </div>
@@ -244,8 +247,8 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
         {/* Actions */}
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
           {/* Round Robin Toggle — always visible */}
-          <div className="flex items-center justify-between gap-1.5 rounded-lg bg-black/[0.02] px-2 py-1.5 dark:bg-white/[0.02] sm:justify-start sm:bg-transparent sm:px-0 sm:py-0 sm:dark:bg-transparent">
-            <span className="text-xs text-text-muted font-medium">Round Robin</span>
+          <div className="flex items-center justify-between gap-2 rounded-full bg-mm-surface px-3 py-1.5 sm:bg-transparent sm:px-0 sm:py-0">
+            <span className="text-xs font-medium text-steel">Round Robin</span>
             <Toggle
               size="sm"
               checked={roundRobinEnabled}
@@ -256,29 +259,29 @@ function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled,
           <div className="grid grid-cols-3 gap-1 sm:flex">
             <button
               onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-mm-surface hover:text-ink"
               title="Copy combo name"
             >
               <span className="material-symbols-outlined text-[18px]">
                 {copied === `combo-${combo.id}` ? "check" : "content_copy"}
               </span>
-              <span className="text-[10px] leading-tight">Copy</span>
+              <span className="text-[11px] font-medium leading-tight mt-0.5">Copy</span>
             </button>
             <button
               onClick={onEdit}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
+              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-mm-surface hover:text-ink"
               title="Edit"
             >
               <span className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[10px] leading-tight">Edit</span>
+              <span className="text-[11px] font-medium leading-tight mt-0.5">Edit</span>
             </button>
             <button
               onClick={onDelete}
-              className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
+              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-danger/10 hover:text-danger"
               title="Delete"
             >
               <span className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[10px] leading-tight">Delete</span>
+              <span className="text-[11px] font-medium leading-tight mt-0.5">Delete</span>
             </button>
           </div>
         </div>

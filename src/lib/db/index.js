@@ -32,6 +32,14 @@ export {
   getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
 } from "./repos/apiKeysRepo.js";
 
+// Users (multi-user dashboard auth: admin / user roles)
+export {
+  countUsers, listUsers, getUserById, getUserByEmail,
+  createUser, verifyUserCredentials,
+  updateUserPassword, setUserRole, setUserActive, deleteUser,
+  publicUser,
+} from "./repos/usersRepo.js";
+
 // Combos
 export {
   getCombos, getComboById, getComboByName,

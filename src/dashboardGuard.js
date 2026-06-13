@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { getSettings, validateApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
-import { verifyDashboardAuthToken } from "@/lib/auth/dashboardSession";
+import { verifyDashboardAuthToken, getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
 const CLI_TOKEN_SALT = "9r-cli-auth";
+
+// HTTP methods that mutate state. /api/* requests using these require admin
+// when role-based gating is in effect; reads (GET, HEAD, OPTIONS) only need a
+// valid session. The auth allow-list (PUBLIC_API_PATHS) bypasses this entirely.
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 let cachedCliToken = null;
 async function getCliToken() {
@@ -25,6 +30,7 @@ const PUBLIC_API_PATHS = [
   "/api/locale",
   "/api/auth/login",
   "/api/auth/logout",
+  "/api/auth/register",
   "/api/auth/status",
   "/api/auth/oidc",
   "/api/version",
@@ -133,6 +139,23 @@ async function hasValidToken(request) {
   return await verifyDashboardAuthToken(token);
 }
 
+// Resolve the role from the session cookie. Returns "admin" | "user" | null.
+// A legacy session ({ authenticated: true } with no role) is treated as admin —
+// it could only have been issued by the pre-RBAC single-password login path.
+// When requireLogin is disabled the instance is intentionally open, so callers
+// are treated as admin (no session needed).
+async function getSessionRole(request) {
+  const token = request.cookies.get("auth_token")?.value;
+  const session = await getDashboardAuthSession(token);
+  if (session) {
+    if (session.role === "admin" || session.role === "user") return session.role;
+    if (session.authenticated) return "admin";
+  }
+  const settings = await loadSettings();
+  if (settings && settings.requireLogin === false) return "admin";
+  return null;
+}
+
 // Read settings directly from DB to avoid self-fetch deadlock in proxy
 async function loadSettings() {
   try {
@@ -172,10 +195,15 @@ export async function proxy(request) {
     }
   }
 
-  // Always protected - require valid JWT or local CLI token (machineId-based)
+  // Always protected - require valid JWT or local CLI token (machineId-based).
+  // These mutate host state or shut down the process — admin-only.
   if (ALWAYS_PROTECTED.some((p) => pathname.startsWith(p))) {
-    if (await hasValidCliToken(request) || await hasValidToken(request))
-      return NextResponse.next();
+    if (await hasValidCliToken(request)) return NextResponse.next();
+    if (await hasValidToken(request)) {
+      const role = await getSessionRole(request);
+      if (role === "admin") return NextResponse.next();
+      return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -184,12 +212,22 @@ export async function proxy(request) {
     return NextResponse.json({ error: "API key required for remote API access" }, { status: 401 });
   }
 
-  // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
+  // Deny-by-default for /api/* — public allow-list bypasses, everything else
+  // requires auth. Mutating methods (POST/PUT/PATCH/DELETE) additionally
+  // require role=admin; reads (GET/HEAD/OPTIONS) accept any authed session.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
-      return NextResponse.next();
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (await hasValidCliToken(request)) return NextResponse.next();
+    if (!(await isAuthenticated(request))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (MUTATING_METHODS.has(request.method)) {
+      const role = await getSessionRole(request);
+      if (role !== "admin") {
+        return NextResponse.json({ error: "Admin role required" }, { status: 403 });
+      }
+    }
+    return NextResponse.next();
   }
 
   // Protect all dashboard routes
