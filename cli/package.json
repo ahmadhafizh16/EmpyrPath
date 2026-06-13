@@ -1,9 +1,9 @@
 {
-  "name": "9router",
+  "name": "empyr-path",
   "version": "0.4.73",
   "description": "9Router CLI - Start and manage 9Router server",
   "bin": {
-    "9router": "./cli.js"
+    "empyr-path": "./cli.js"
   },
   "files": [
     "cli.js",

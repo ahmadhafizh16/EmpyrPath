@@ -170,18 +170,22 @@ export default function RequestDetailsTab() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      <Card padding="md">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card padding="none">
+        <div className="flex items-center gap-2.5 border-b border-hairline px-5 py-4">
+          <span className="material-symbols-outlined text-[18px] text-steel">filter_alt</span>
+          <h3 className="text-ink font-semibold tracking-tight">Filters</h3>
+        </div>
+        <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="provider-filter" className="text-sm font-medium text-text-main">Provider</label>
+            <label htmlFor="provider-filter" className="text-xs font-semibold uppercase tracking-wide text-steel">Provider</label>
             <select
               id="provider-filter"
               value={filters.provider}
               onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
-                "w-full min-w-0 cursor-pointer"
+                "h-10 px-3 rounded-mm-xl border border-hairline bg-canvas",
+                "text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/10 focus:border-ink/40",
+                "w-full min-w-0 cursor-pointer transition-colors"
               )}
               style={{ colorScheme: 'auto' }}
             >
@@ -193,39 +197,39 @@ export default function RequestDetailsTab() {
               ))}
             </select>
           </div>
-          
+
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="start-date-filter" className="text-sm font-medium text-text-main">Start Date</label>
+            <label htmlFor="start-date-filter" className="text-xs font-semibold uppercase tracking-wide text-steel">Start Date</label>
             <input
               id="start-date-filter"
               type="datetime-local"
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
+                "h-10 px-3 rounded-mm-xl border border-hairline bg-canvas",
+                "w-full min-w-0 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/10 focus:border-ink/40 transition-colors"
               )}
             />
           </div>
 
           <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="end-date-filter" className="text-sm font-medium text-text-main">End Date</label>
+            <label htmlFor="end-date-filter" className="text-xs font-semibold uppercase tracking-wide text-steel">End Date</label>
             <input
               id="end-date-filter"
               type="datetime-local"
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
+                "h-10 px-3 rounded-mm-xl border border-hairline bg-canvas",
+                "w-full min-w-0 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink/10 focus:border-ink/40 transition-colors"
               )}
             />
           </div>
-          
+
           <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-1">
-            <span className="hidden text-sm font-medium text-text-main opacity-0 lg:block" aria-hidden="true">Clear</span>
-            <Button 
-              variant="ghost" 
+            <span className="hidden text-xs font-semibold uppercase tracking-wide text-steel opacity-0 lg:block" aria-hidden="true">Clear</span>
+            <Button
+              variant="ghost"
               onClick={handleClearFilters}
               disabled={!filters.provider && !filters.startDate && !filters.endDate}
               className="w-full"
@@ -237,23 +241,27 @@ export default function RequestDetailsTab() {
       </Card>
 
       <Card padding="none">
+        <div className="flex items-center gap-2.5 border-b border-hairline px-5 py-4">
+          <span className="material-symbols-outlined text-[18px] text-steel">receipt_long</span>
+          <h3 className="text-ink font-semibold tracking-tight">Request log</h3>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px]">
-            <thead>
-              <tr className="border-b border-black/5 dark:border-white/5">
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Timestamp</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Model</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Provider</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Input Tokens</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Output Tokens</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Latency</th>
-                <th className="text-center p-4 text-sm font-semibold text-text-main">Action</th>
+            <thead className="bg-mm-surface">
+              <tr>
+                <th className="p-4 text-left text-xs font-semibold uppercase tracking-wide text-steel">Timestamp</th>
+                <th className="p-4 text-left text-xs font-semibold uppercase tracking-wide text-steel">Model</th>
+                <th className="p-4 text-left text-xs font-semibold uppercase tracking-wide text-steel">Provider</th>
+                <th className="p-4 text-right text-xs font-semibold uppercase tracking-wide text-steel">Input Tokens</th>
+                <th className="p-4 text-right text-xs font-semibold uppercase tracking-wide text-steel">Output Tokens</th>
+                <th className="p-4 text-left text-xs font-semibold uppercase tracking-wide text-steel">Latency</th>
+                <th className="p-4 text-center text-xs font-semibold uppercase tracking-wide text-steel">Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan="7" className="p-8 text-center text-steel">
                     <div className="flex items-center justify-center gap-2">
                       <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
                       Loading...
@@ -262,7 +270,7 @@ export default function RequestDetailsTab() {
                 </tr>
               ) : details.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan="7" className="p-8 text-center text-steel">
                     No request details found
                   </td>
                 </tr>
@@ -270,26 +278,26 @@ export default function RequestDetailsTab() {
                 details.map((detail, index) => (
                   <tr
                     key={`${detail.id}-${index}`}
-                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    className="section-hover-row border-b border-hairline-soft transition-colors last:border-b-0"
                   >
-                    <td className="whitespace-nowrap p-4 text-sm text-text-main">
+                    <td className="whitespace-nowrap p-4 text-sm text-ink">
                       {new Date(detail.timestamp).toLocaleString()}
                     </td>
-                    <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
+                    <td className="max-w-[260px] truncate p-4 font-mono text-sm text-ink">
                       {detail.model}
                     </td>
-                    <td className="max-w-[180px] truncate p-4 text-sm text-text-main">
+                    <td className="max-w-[180px] truncate p-4 text-sm text-ink">
                        <span className="font-medium">
                          {getProviderName(detail.provider, providerNameCache)}
                        </span>
                      </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="p-4 text-right font-mono text-sm text-ink">
                       {getInputTokens(detail.tokens).toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="p-4 text-right font-mono text-sm text-ink">
                       {detail.tokens?.completion_tokens?.toLocaleString() || 0}
                     </td>
-                    <td className="p-4 text-sm text-text-muted">
+                    <td className="p-4 text-sm text-steel">
                       <div className="flex flex-col gap-0.5">
                         <div>TTFT: <span className="font-mono">{detail.latency?.ttft || 0}ms</span></div>
                         <div>Total: <span className="font-mono">{detail.latency?.total || 0}ms</span></div>
@@ -312,7 +320,7 @@ export default function RequestDetailsTab() {
         </div>
 
         {!loading && details.length > 0 && (
-          <div className="border-t border-black/5 dark:border-white/5">
+          <div className="border-t border-hairline">
             <Pagination
               currentPage={pagination.page}
               pageSize={pagination.pageSize}

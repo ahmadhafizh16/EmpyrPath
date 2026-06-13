@@ -220,73 +220,71 @@ export default function CombosPage() {
 function ComboCard({ combo, copied, onCopy, onEdit, onDelete, roundRobinEnabled, onToggleRoundRobin }) {
   return (
     <Card padding="sm" section="purple" className="group">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <div className="section-mark size-9 rounded-xl flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-[18px]">layers</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-semibold text-ink">{combo.name}</code>
-            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
-              {combo.models.length === 0 ? (
-                <span className="text-xs text-stone italic">No models</span>
-              ) : (
-                combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="max-w-full truncate rounded-md bg-mm-surface px-1.5 py-0.5 font-mono text-[11px] text-slate sm:max-w-[220px]">
-                    {model}
-                  </code>
-                ))
-              )}
-              {combo.models.length > 3 && (
-                <span className="text-[11px] font-medium text-steel">+{combo.models.length - 3} more</span>
-              )}
-            </div>
-          </div>
+      {/* Row 1: icon + name + actions (icon-only with tooltips) */}
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="section-mark size-9 rounded-xl flex items-center justify-center shrink-0">
+          <span className="material-symbols-outlined text-[18px]">layers</span>
         </div>
+        <code className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-ink">{combo.name}</code>
 
-        {/* Actions */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          {/* Round Robin Toggle — always visible */}
-          <div className="flex items-center justify-between gap-2 rounded-full bg-mm-surface px-3 py-1.5 sm:bg-transparent sm:px-0 sm:py-0">
-            <span className="text-xs font-medium text-steel">Round Robin</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Round Robin Toggle */}
+          <div className="mr-1 flex items-center gap-1.5 rounded-full bg-mm-surface px-2.5 py-1">
+            <span className="text-[11px] font-medium text-steel">Round Robin</span>
             <Toggle
               size="sm"
               checked={roundRobinEnabled}
               onChange={onToggleRoundRobin}
             />
           </div>
-
-          <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button
-              onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-mm-surface hover:text-ink"
-              title="Copy combo name"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {copied === `combo-${combo.id}` ? "check" : "content_copy"}
-              </span>
-              <span className="text-[11px] font-medium leading-tight mt-0.5">Copy</span>
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-mm-surface hover:text-ink"
-              title="Edit"
-            >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[11px] font-medium leading-tight mt-0.5">Edit</span>
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex flex-col items-center rounded-full px-3 py-1.5 text-steel transition-colors hover:bg-danger/10 hover:text-danger"
-              title="Delete"
-            >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[11px] font-medium leading-tight mt-0.5">Delete</span>
-            </button>
-          </div>
+          <ComboActionBtn
+            label="Copy combo name"
+            icon={copied === `combo-${combo.id}` ? "check" : "content_copy"}
+            tone="blue"
+            onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
+          />
+          <ComboActionBtn label="Edit" icon="edit" tone="coral" onClick={onEdit} />
+          <ComboActionBtn label="Delete" icon="delete" tone="danger" onClick={onDelete} />
         </div>
       </div>
+
+      {/* Row 2: model list */}
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1">
+        {combo.models.length === 0 ? (
+          <span className="text-xs text-stone italic">No models</span>
+        ) : (
+          combo.models.slice(0, 3).map((model, index) => (
+            <code key={index} className="max-w-full truncate rounded-md bg-mm-surface px-1.5 py-0.5 font-mono text-[11px] text-slate sm:max-w-[220px]">
+              {model}
+            </code>
+          ))
+        )}
+        {combo.models.length > 3 && (
+          <span className="text-[11px] font-medium text-steel">+{combo.models.length - 3} more</span>
+        )}
+      </div>
     </Card>
+  );
+}
+
+function ComboActionBtn({ label, icon, tone, onClick }) {
+  const tones = {
+    blue: "text-brand-blue-mm hover:bg-brand-blue-mm/10",
+    coral: "text-brand-coral-mm hover:bg-brand-coral-mm/10",
+    danger: "text-danger hover:bg-danger/10",
+  };
+  return (
+    <span className="relative group/btn inline-flex">
+      <button
+        onClick={onClick}
+        className={`flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors ${tones[tone] || tones.blue}`}
+      >
+        <span className="material-symbols-outlined text-[18px]">{icon}</span>
+      </button>
+      <span className="pointer-events-none absolute -top-8 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#1c1c1c] px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover/btn:opacity-100 dark:bg-white dark:text-[#1c1c1c]">
+        {label}
+      </span>
+    </span>
   );
 }
 

@@ -12,6 +12,7 @@ function isLLMProvider(id) {
 }
 import Badge from "./Badge";
 import Card from "./Card";
+import SegmentedControl from "./SegmentedControl";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import ProviderTopology from "@/app/(dashboard)/dashboard/usage/components/ProviderTopology";
@@ -37,42 +38,57 @@ function TimeAgo({ timestamp }) {
   return <>{timeAgo(timestamp)}</>;
 }
 
+function fmtLatency(latency) {
+  const total = latency?.total;
+  if (!total && total !== 0) return null;
+  if (total >= 1000) return `${(total / 1000).toFixed(1)}s`;
+  return `${total}ms`;
+}
+
 function RecentRequests({ requests = [] }) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
+    <Card className="flex min-w-0 flex-col overflow-hidden" padding="none" style={{ height: 480 }}>
       {/* Header */}
-      <div className="px-1 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
+      <div className="flex shrink-0 items-center justify-between border-b border-hairline px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="section-dot" />
+          <h3 className="text-ink font-semibold tracking-tight">Recent Requests</h3>
+        </div>
+        <span className="text-xs font-medium text-steel">Live</span>
       </div>
 
       {!requests.length ? (
-        <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
+        <div className="flex flex-1 items-center justify-center text-sm text-steel">No requests yet.</div>
       ) : (
         <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[300px] border-collapse text-xs">
-            <thead className="sticky top-0 bg-bg z-10">
-              <tr className="border-b border-border">
-                <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
-                <th className="py-1.5 text-left font-semibold text-text-muted">Model</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">In / Out</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted">When</th>
+          <table className="w-full min-w-[340px] border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-mm-surface">
+              <tr className="text-left">
+                <th className="w-2 px-5 py-2.5"></th>
+                <th className="px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-steel">Model</th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-steel">In / Out</th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-steel">Latency</th>
+                <th className="whitespace-nowrap px-5 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-steel">When</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody className="divide-y divide-hairline-soft">
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
+                const lat = fmtLatency(r.latency);
                 return (
-                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
-                    <td className="py-1.5">
-                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
+                  <tr key={i} className="section-hover-row transition-colors">
+                    <td className="px-5 py-2.5">
+                      <span className={`block h-1.5 w-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
                     </td>
-                    <td className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
-                      <span className="text-primary">{fmt(r.promptTokens)}↑</span>
-                      {" "}
+                    <td className="max-w-[140px] truncate px-3 py-2.5 font-mono text-xs text-ink" title={r.model}>{r.model}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right text-xs">
+                      <span className="text-steel">{fmt(r.promptTokens)}↑</span>{" "}
                       <span className="text-success">{fmt(r.completionTokens)}↓</span>
                     </td>
-                    <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono text-xs text-steel">
+                      {lat ?? "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-2.5 text-right text-xs text-steel"><TimeAgo timestamp={r.timestamp} /></td>
                   </tr>
                 );
               })}
@@ -418,20 +434,15 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {/* Period selector (hidden when controlled by parent) */}
       {!hidePeriodSelector && (
         <div className="flex w-full items-center gap-2 sm:w-auto sm:self-end">
-          <div className="grid flex-1 grid-cols-5 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex sm:flex-none">
-            {PERIODS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value)}
-                disabled={fetching}
-                className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${period === p.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:bg-bg-hover hover:text-text"}`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            options={PERIODS}
+            value={period}
+            onChange={setPeriod}
+            size="sm"
+            className="w-full sm:w-auto"
+          />
           {fetching && (
-            <span className="material-symbols-outlined text-[16px] text-text-muted animate-spin">progress_activity</span>
+            <span className="material-symbols-outlined text-[16px] text-steel animate-spin">progress_activity</span>
           )}
         </div>
       )}
@@ -455,32 +466,31 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {/* Token / Cost chart - sync period */}
       {loading ? spinner : <UsageChart period={period} />}
 
-      {/* Table with dropdown selector */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <select
-            value={tableView}
-            onChange={(e) => setTableView(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
-            style={{ colorScheme: 'auto' }}
-          >
-            {TABLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">
-            <button
-              onClick={() => setViewMode("costs")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-            >
-              Costs
-            </button>
-            <button
-              onClick={() => setViewMode("tokens")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-            >
-              Tokens
-            </button>
+      {/* Table with segmented tab selector */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="section-dot" />
+            <h3 className="text-ink font-semibold tracking-tight">Usage breakdown</h3>
+          </div>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <SegmentedControl
+              options={TABLE_OPTIONS}
+              value={tableView}
+              onChange={setTableView}
+              size="sm"
+              className="w-full lg:w-auto"
+            />
+            <SegmentedControl
+              options={[
+                { value: "costs", label: "Costs" },
+                { value: "tokens", label: "Tokens" },
+              ]}
+              value={viewMode}
+              onChange={setViewMode}
+              size="sm"
+              className="w-full lg:w-auto"
+            />
           </div>
         </div>
         {loading ? spinner : activeTableConfig && (

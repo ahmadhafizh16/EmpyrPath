@@ -400,10 +400,10 @@ export default function ProvidersPage() {
             <button
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+              className={`cursor-pointer flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors sm:w-auto sm:py-1.5 ${
                 testingMode === "oauth"
-                  ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                  : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                  ? "bg-blue-500/20 border-blue-500/40 text-blue-400 animate-pulse"
+                  : "bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/15"
               }`}
               title="Test all OAuth connections"
               aria-label="Test all OAuth connections"
@@ -442,10 +442,10 @@ export default function ProvidersPage() {
           <button
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`cursor-pointer flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors sm:w-auto sm:py-1.5 ${
               testingMode === "free"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                ? "bg-blue-500/20 border-blue-500/40 text-blue-400 animate-pulse"
+                : "bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/15"
             }`}
             title="Test all Free connections"
             aria-label="Test all Free provider connections"
@@ -493,10 +493,10 @@ export default function ProvidersPage() {
           <button
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`cursor-pointer flex w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors sm:w-auto sm:py-1.5 ${
               testingMode === "apikey"
-                ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                ? "bg-blue-500/20 border-blue-500/40 text-blue-400 animate-pulse"
+                : "bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/15"
             }`}
             title="Test all API Key connections"
             aria-label="Test all API Key connections"

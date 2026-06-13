@@ -5,9 +5,10 @@ import PropTypes from "prop-types";
 import { Badge, Toggle } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
 
-export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null }) {
+export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, isSelected, onSelect }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
   const proxyDropdownRef = useRef(null);
 
   const proxyPoolMap = new Map((proxyPools || []).map((pool) => [pool.id, pool]));
@@ -132,94 +133,107 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
   };
 
   return (
-    <div className={`group flex min-w-0 flex-col gap-3 rounded-lg p-2 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between ${connection.isActive === false ? "opacity-60" : ""}`}>
-      <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
-        {/* Priority arrows */}
-        <div className="flex shrink-0 flex-col">
-          <button
-            onClick={onMoveUp}
-            disabled={isFirst}
-            className={`p-0.5 rounded ${isFirst ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
-          >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_up</span>
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={isLast}
-            className={`p-0.5 rounded ${isLast ? "text-text-muted/30 cursor-not-allowed" : "hover:bg-sidebar text-text-muted hover:text-primary"}`}
-          >
-            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
-          </button>
-        </div>
-        <span className="material-symbols-outlined shrink-0 text-base text-text-muted">
-          {authIcon}
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{displayName}</p>
-          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
-            <Badge variant={getStatusVariant()} size="sm" dot>
-              {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
-            </Badge>
-            <Badge variant="default" size="sm">
-              {authLabel}
-            </Badge>
-            {hasAnyProxy && (
-              <Badge variant={proxyBadgeVariant} size="sm">
-                Proxy
-              </Badge>
-            )}
-            {isCooldown && connection.isActive !== false && <CooldownTimer until={modelLockUntil} />}
-            {connection.lastError && connection.isActive !== false && (
-              <span className="max-w-full truncate text-xs text-red-500 sm:max-w-[300px]" title={connection.lastError}>
-                {connection.lastError}
-              </span>
-            )}
-            <span className="text-xs text-text-muted">#{connection.priority}</span>
-            {connection.globalPriority && (
-              <span className="text-xs text-text-muted">Auto: {connection.globalPriority}</span>
-            )}
-            {getOneByOneLabel() && (
-              <Badge variant={getOneByOneVariant()} size="sm">
-                {getOneByOneLabel()}
-              </Badge>
-            )}
+    <tr className={`group transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.02] ${connection.isActive === false ? "opacity-60" : ""}`}>
+      {/* Checkbox */}
+      <td className="py-3 px-3">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onSelect}
+          className="rounded border-black/20 dark:border-white/20 bg-transparent text-primary focus:ring-primary focus:ring-offset-0 cursor-pointer"
+        />
+      </td>
+
+      {/* Number with reorder controls */}
+      <td className="py-3 px-3">
+        <div className="flex items-center gap-1.5 group/row">
+          <span className="text-xs font-medium text-text-muted min-w-[24px] text-right">{connection.priority}</span>
+          <div className="flex flex-col opacity-0 group-hover/row:opacity-100 transition-opacity">
+            <button
+              onClick={onMoveUp}
+              disabled={isFirst}
+              className={`p-0.5 rounded transition-colors ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted/60 hover:text-primary hover:bg-primary/10"}`}
+            >
+              <span className="material-symbols-outlined text-xs">keyboard_arrow_up</span>
+            </button>
+            <button
+              onClick={onMoveDown}
+              disabled={isLast}
+              className={`p-0.5 rounded transition-colors ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted/60 hover:text-primary hover:bg-primary/10"}`}
+            >
+              <span className="material-symbols-outlined text-xs">keyboard_arrow_down</span>
+            </button>
           </div>
+        </div>
+      </td>
+
+      {/* Name */}
+      <td className="py-3 px-4">
+        <p className="text-sm font-medium truncate max-w-[200px]">{displayName}</p>
+      </td>
+
+      {/* Identity */}
+      <td className="py-3 px-4">
+        <Badge variant="default" size="sm">
+          {authLabel}
+        </Badge>
+      </td>
+
+      {/* Status */}
+      <td className="py-3 px-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant={getStatusVariant()} size="sm" dot>
+            {connection.isActive === false ? "disabled" : (effectiveStatus || "Unknown")}
+          </Badge>
           {hasAnyProxy && (
-            <div className="mt-1 flex items-center gap-2 flex-wrap">
-              <span className="max-w-full truncate text-[11px] text-text-muted sm:max-w-[420px]" title={proxyDisplayText}>
+            <Badge variant={proxyBadgeVariant} size="sm">
+              Proxy
+            </Badge>
+          )}
+          {isCooldown && connection.isActive !== false && <CooldownTimer until={modelLockUntil} />}
+          {connection.lastError && connection.isActive !== false && (
+            <span className="max-w-[180px] truncate text-xs text-red-500" title={connection.lastError}>
+              {connection.lastError}
+            </span>
+          )}
+          {getOneByOneLabel() && (
+            <Badge variant={getOneByOneVariant()} size="sm">
+              {getOneByOneLabel()}
+            </Badge>
+          )}
+          {hasAnyProxy && (
+            <div className="w-full flex items-center gap-2 mt-1">
+              <span className="max-w-[160px] truncate text-[11px] text-text-muted" title={proxyDisplayText}>
                 {proxyDisplayText}
               </span>
               {maskedProxyUrl && (
-                <code className="max-w-full truncate rounded bg-black/5 px-1 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5 sm:max-w-[260px]">
+                <code className="max-w-[140px] truncate rounded bg-black/5 px-1 py-0.5 font-mono text-[10px] text-text-muted dark:bg-white/5">
                   {maskedProxyUrl}
                 </code>
-              )}
-              {noProxyText && (
-                <span className="max-w-full truncate text-[11px] text-text-muted sm:max-w-[320px]" title={noProxyText}>
-                  no_proxy: {noProxyText}
-                </span>
               )}
             </div>
           )}
         </div>
-      </div>
-      <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-end">
-        <div className="grid flex-1 grid-cols-3 gap-1 sm:flex sm:flex-none">
-          {/* Proxy button with inline dropdown */}
+      </td>
+
+      {/* Actions */}
+      <td className="py-3 px-4 text-right">
+        <div className="inline-flex items-center gap-2">
+          {/* Proxy button with dropdown */}
           {(proxyPools || []).length > 0 && (
             <div className="relative" ref={proxyDropdownRef}>
               <button
                 onClick={() => setShowProxyDropdown((v) => !v)}
-                className={`flex w-full flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${hasAnyProxy ? "text-primary" : "text-text-muted hover:text-primary"}`}
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${hasAnyProxy ? "bg-primary/10 text-primary hover:bg-primary/15" : "bg-black/5 text-text-muted hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"}`}
                 disabled={updatingProxy}
               >
-                <span className="material-symbols-outlined text-[18px]">
+                <span className="material-symbols-outlined text-sm">
                   {updatingProxy ? "progress_activity" : "lan"}
                 </span>
-                <span className="text-[10px] leading-tight">Proxy</span>
+                <span>{hasAnyProxy ? "Proxy" : "Proxy"}</span>
               </button>
               {showProxyDropdown && (
-                <div className="absolute right-0 top-full z-50 mt-1 max-w-[78vw] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-50 mt-1 max-w-[280px] min-w-[160px] rounded-lg border border-border bg-bg py-1 shadow-lg">
                   <button
                     onClick={() => handleSelectProxy("__none__")}
                     className={`w-full text-left px-3 py-1.5 text-sm hover:bg-black/5 dark:hover:bg-white/5 ${!boundProxyPoolId ? "text-primary font-medium" : "text-text-main"}`}
@@ -239,23 +253,45 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
               )}
             </div>
           )}
-          <button onClick={onEdit} className="flex flex-col items-center rounded px-2 py-1 text-text-muted hover:bg-black/5 hover:text-primary dark:hover:bg-white/5">
-            <span className="material-symbols-outlined text-[18px]">edit</span>
-            <span className="text-[10px] leading-tight">Edit</span>
+          <button
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 rounded-full bg-black/5 px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-black/10 hover:text-primary dark:bg-white/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">edit</span>
+            <span>Edit</span>
           </button>
-          <button onClick={onDelete} className="flex flex-col items-center rounded px-2 py-1 text-red-500 hover:bg-red-500/10">
-            <span className="material-symbols-outlined text-[18px]">delete</span>
-            <span className="text-[10px] leading-tight">Delete</span>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/15 cursor-pointer transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">delete</span>
+            <span>Delete</span>
+          </button>
+          <button
+            onClick={async () => {
+              const newStatus = !(connection.isActive ?? true);
+              setTogglingActive(true);
+              try {
+                await onToggleActive(newStatus);
+              } finally {
+                setTogglingActive(false);
+              }
+            }}
+            disabled={togglingActive}
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${(connection.isActive ?? true) ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/15 dark:text-emerald-400" : "bg-black/5 text-text-muted hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"}`}
+          >
+            {togglingActive ? (
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+            ) : (
+              <span className="material-symbols-outlined text-sm">
+                {(connection.isActive ?? true) ? "check_circle" : "cancel"}
+              </span>
+            )}
+            <span>{(connection.isActive ?? true) ? "Active" : "Inactive"}</span>
           </button>
         </div>
-        <Toggle
-          size="sm"
-          checked={connection.isActive ?? true}
-          onChange={onToggleActive}
-          title={(connection.isActive ?? true) ? "Disable connection" : "Enable connection"}
-        />
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
@@ -292,4 +328,6 @@ ConnectionRow.propTypes = {
     state: PropTypes.string,
     error: PropTypes.string,
   }),
+  isSelected: PropTypes.bool.isRequired,
+  onSelect: PropTypes.func.isRequired,
 };
