@@ -297,32 +297,8 @@ function ComboCard({
 						<code className="block truncate font-mono text-sm font-semibold text-ink">
 							{combo.name}
 						</code>
-						<div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
-							{combo.models.length === 0 ? (
-								<span className="text-xs text-stone italic">
-									No models
-								</span>
-							) : (
-								combo.models.slice(0, 3).map((model, index) => (
-									<code
-										key={index}
-										className="max-w-full truncate rounded-md bg-mm-surface px-1.5 py-0.5 font-mono text-[11px] text-slate sm:max-w-[220px]"
-									>
-										{model}
-									</code>
-								))
-							)}
-							{combo.models.length > 3 && (
-								<span className="text-[11px] font-medium text-steel">
-									+{combo.models.length - 3} more
-								</span>
-							)}
-						</div>
 					</div>
 				</div>
-				<code className="min-w-0 flex-1 truncate font-mono text-sm font-semibold text-ink">
-					{combo.name}
-				</code>
 
 				{/* Actions */}
 				<div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">

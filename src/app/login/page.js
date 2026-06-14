@@ -172,11 +172,6 @@ export default function LoginPage() {
     }
   };
 
-	const handleRegister = async (e) => {
-		e.preventDefault();
-		setError("");
-		setNotice("");
-
   const oidcAvailable = oidcConfigured && ["oidc", "both"].includes(authMode);
   const passwordAvailable = authMode !== "oidc" || !oidcConfigured;
   const isRegister = mode === "register";
