@@ -224,21 +224,18 @@ export default function LoginPage() {
         <div className="relative z-10 flex items-center justify-between">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-white" />
-            9Router
-          </span>
-          <span className="text-xs font-medium tracking-wide text-white/70">
-            v0.4.71
+            Empyr Path
           </span>
         </div>
 
         <div className="relative z-10 my-12">
           <h2 className="text-5xl font-semibold leading-[1.05] tracking-[-0.02em] md:text-6xl">
-            One endpoint.
+            One plan.
             <br />
-            Every model.
+            Every AI.
           </h2>
           <p className="mt-5 max-w-md text-base leading-relaxed text-white/85">
-            Self-hosted AI router. 40+ providers, auto-fallback tiers, and the RTK token saver — never stop coding.
+            Subscribe once, access leading AI models with a single key. Stackable plans, fair daily limits, no setup hassle.
           </p>
         </div>
 
@@ -275,16 +272,16 @@ export default function LoginPage() {
 
         <ul className="relative z-10 grid grid-cols-3 gap-3">
           <li className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
-            <p className="text-2xl font-semibold leading-none">40+</p>
-            <p className="mt-1.5 text-xs text-white/75">Providers</p>
-          </li>
-          <li className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
             <p className="text-2xl font-semibold leading-none">100+</p>
-            <p className="mt-1.5 text-xs text-white/75">Models</p>
+            <p className="mt-1.5 text-xs text-white/75">AI models</p>
           </li>
           <li className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
-            <p className="text-2xl font-semibold leading-none">20–40%</p>
-            <p className="mt-1.5 text-xs text-white/75">Tokens saved</p>
+            <p className="text-2xl font-semibold leading-none">1 key</p>
+            <p className="mt-1.5 text-xs text-white/75">For everything</p>
+          </li>
+          <li className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
+            <p className="text-2xl font-semibold leading-none">Daily</p>
+            <p className="mt-1.5 text-xs text-white/75">Limits reset</p>
           </li>
         </ul>
       </aside>
@@ -532,7 +529,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-10 text-center text-xs text-stone">
-            One endpoint for all your AI providers.
+            One subscription, every AI model.
           </p>
         </div>
       </main>

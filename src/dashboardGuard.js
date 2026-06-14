@@ -69,6 +69,29 @@ const PROTECTED_API_PATHS = [
   "/api/mcp",
   "/api/translator",
   "/api/tunnel",
+  "/api/subscription-plans",
+  "/api/subscriptions",
+];
+
+// Dashboard paths that require role=admin. role=user is redirected to their
+// landing page (/dashboard/my-api-key) rather than 403'd, since the sidebar
+// hides these and a direct URL hit is most likely a bookmark from before
+// role-gating. Sub-paths included via startsWith.
+const ADMIN_ONLY_DASHBOARD_PATHS = [
+  "/dashboard/endpoint",
+  "/dashboard/providers",
+  "/dashboard/combos",
+  "/dashboard/quota",
+  "/dashboard/mitm",
+  "/dashboard/cli-tools",
+  "/dashboard/console-log",
+  "/dashboard/translator",
+  "/dashboard/proxy-pools",
+  "/dashboard/skills",
+  "/dashboard/users",
+  "/dashboard/media-providers",
+  "/dashboard/basic-chat",
+  "/dashboard/subscriptions",
 ];
 
 // Routes that spawn child processes or read host secrets — restrict to localhost.
@@ -225,6 +248,21 @@ export async function proxy(request) {
     if (MUTATING_METHODS.has(request.method)) {
       const role = await getSessionRole(request);
       if (role !== "admin") {
+        // Narrow exception: role=user may mutate /api/keys (only their own keys —
+        // ownership is enforced inside the route) when self-service key
+        // generation is enabled. Everything else stays admin-only.
+        if (role === "user" && pathname.startsWith("/api/keys")) {
+          const settings = await loadSettings();
+          if (settings && settings.allowUserKeyGeneration === true) {
+            return NextResponse.next();
+          }
+        }
+        // Narrow exception: role=user may POST (request) / PATCH (cancel) their
+        // own subscriptions. Plan CRUD and approve/reject stay admin-only and are
+        // re-checked inside the routes; ownership is enforced there too.
+        if (role === "user" && pathname.startsWith("/api/subscriptions")) {
+          return NextResponse.next();
+        }
         return NextResponse.json({ error: "Admin role required" }, { status: 403 });
       }
     }
@@ -263,6 +301,22 @@ export async function proxy(request) {
     const token = request.cookies.get("auth_token")?.value;
     if (token) {
       if (await verifyDashboardAuthToken(token)) {
+        // Role-gate admin-only dashboard pages. role=user gets redirected to
+        // their landing page rather than 403'd — direct hits are most likely
+        // bookmarks from before role-gating, not malicious. The bare /dashboard
+        // root renders the admin endpoint view, so it gets the same treatment
+        // (exact match — startsWith would otherwise catch user-allowed children
+        // like /dashboard/my-api-key).
+        const isDashboardRoot = pathname === "/dashboard" || pathname === "/dashboard/";
+        const isAdminPath = ADMIN_ONLY_DASHBOARD_PATHS.some(
+          (p) => pathname === p || pathname.startsWith(`${p}/`),
+        );
+        if (isDashboardRoot || isAdminPath) {
+          const role = await getSessionRole(request);
+          if (role !== "admin") {
+            return NextResponse.redirect(new URL("/dashboard/my-api-key", request.url));
+          }
+        }
         return NextResponse.next();
       } else {
         return NextResponse.redirect(new URL("/login", request.url));

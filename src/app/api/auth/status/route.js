@@ -38,6 +38,7 @@ export async function GET() {
       userCount,
       bootstrap: userCount === 0,
       allowSignup: settings.allowSignup !== false,
+      allowUserKeyGeneration: settings.allowUserKeyGeneration === true,
       displayName,
       loginMethod,
       role,

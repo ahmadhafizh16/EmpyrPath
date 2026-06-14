@@ -6,6 +6,7 @@ import {
   clearAccountError,
   extractApiKey,
   isValidApiKey,
+  checkApiKeyAccess,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
@@ -72,10 +73,67 @@ export async function handleChat(request, clientRawRequest = null) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+    const access = await checkApiKeyAccess(apiKey, { model: modelStr });
+    if (!access.ok) {
+      if (access.reason === "quota_exceeded") {
+        const { metric, limit, window, used } = access.quota;
+        log.warn("AUTH", `Quota exceeded: ${used}/${limit} ${metric} (${window})`);
+        return errorResponse(
+          HTTP_STATUS.RATE_LIMITED,
+          `Quota exceeded: ${used}/${limit} ${metric} per ${window}. Contact an admin to raise your limit.`
+        );
+      }
+      if (access.reason === "quota_required") {
+        log.warn("AUTH", "No quota assigned to this key (default-deny)");
+        return errorResponse(
+          HTTP_STATUS.FORBIDDEN,
+          "No usage quota is assigned to this API key. Contact an admin to assign one."
+        );
+      }
+      if (access.reason === "model_not_allowed") {
+        log.warn("AUTH", `Model not allowed for this key: ${access.requestedModel}`);
+        return errorResponse(
+          HTTP_STATUS.FORBIDDEN,
+          `Model '${access.requestedModel}' is not allowed for this API key. Contact an admin to enable it.`
+        );
+      }
+      if (access.reason === "subscription_exhausted") {
+        log.warn("AUTH", `Subscription budget exhausted for ${modelStr}`);
+        return errorResponse(
+          HTTP_STATUS.RATE_LIMITED,
+          `Your subscription budget for '${modelStr}' is exhausted. It resets daily (requests) or when you renew (tokens).`
+        );
+      }
+      log.warn("AUTH", `Invalid API key (requireApiKey=true, reason=${access.reason})`);
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    }
+  } else if (apiKey) {
+    // requireApiKey is off, but a key was supplied — still enforce quota and the
+    // model allowlist so a restricted user can't bypass by relying on the
+    // open-endpoint mode. An unknown/invalid key in local mode is ignored
+    // (local use stays unmetered/unrestricted).
+    const access = await checkApiKeyAccess(apiKey, { model: modelStr });
+    if (!access.ok && access.reason === "quota_exceeded") {
+      const { metric, limit, window, used } = access.quota;
+      log.warn("AUTH", `Quota exceeded: ${used}/${limit} ${metric} (${window})`);
+      return errorResponse(
+        HTTP_STATUS.RATE_LIMITED,
+        `Quota exceeded: ${used}/${limit} ${metric} per ${window}. Contact an admin to raise your limit.`
+      );
+    }
+    if (!access.ok && access.reason === "quota_required") {
+      log.warn("AUTH", "No quota assigned to this key (default-deny)");
+      return errorResponse(
+        HTTP_STATUS.FORBIDDEN,
+        "No usage quota is assigned to this API key. Contact an admin to assign one."
+      );
+    }
+    if (!access.ok && access.reason === "model_not_allowed") {
+      log.warn("AUTH", `Model not allowed for this key: ${access.requestedModel}`);
+      return errorResponse(
+        HTTP_STATUS.FORBIDDEN,
+        `Model '${access.requestedModel}' is not allowed for this API key. Contact an admin to enable it.`
+      );
     }
   }
 
@@ -102,7 +160,11 @@ export async function handleChat(request, clientRawRequest = null) {
     return handleComboChat({
       body,
       models: comboModels,
-      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+      // comboName threads the user-facing label (e.g. "combo1") through the
+      // resolved-model dispatch so usage tracking can record the combo name
+      // instead of the rotated member model. Internal logs still show the
+      // resolved provider/model for debugging.
+      handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, modelStr),
       log,
       comboName: modelStr,
       comboStrategy,
@@ -116,8 +178,13 @@ export async function handleChat(request, clientRawRequest = null) {
 
 /**
  * Handle single model chat request
+ *
+ * @param {string|null} comboName - When this single-model dispatch is the
+ *   resolved member of a combo call, the original combo label. Threads down to
+ *   saveUsageStats so the recorded model is the user-facing combo name, not
+ *   the rotated member. null for direct single-model calls.
  */
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null) {
+async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null, comboName = null) {
   const modelInfo = await getModelInfo(modelStr);
 
   // If provider is null, this might be a combo name - check and handle
@@ -129,13 +196,13 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       const comboStrategies = chatSettings.comboStrategies || {};
       const comboSpecificStrategy = comboStrategies[modelStr]?.fallbackStrategy;
       const comboStrategy = comboSpecificStrategy || chatSettings.comboStrategy || "fallback";
-      
+
       const comboStickyLimit = chatSettings.comboStickyRoundRobinLimit;
       log.info("CHAT", `Combo "${modelStr}" with ${comboModels.length} models (strategy: ${comboStrategy}, sticky: ${comboStickyLimit})`);
       return handleComboChat({
         body,
         models: comboModels,
-        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        handleSingleModel: (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, modelStr),
         log,
         comboName: modelStr,
         comboStrategy,
@@ -209,6 +276,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       connectionId: credentials.connectionId,
       userAgent,
       apiKey,
+      // When this dispatch is a combo member, record usage under the combo
+      // label instead of the resolved member model.
+      comboName,
       ccFilterNaming: !!chatSettings.ccFilterNaming,
       rtkEnabled: !!chatSettings.rtkEnabled,
       cavemanEnabled: !!chatSettings.cavemanEnabled,

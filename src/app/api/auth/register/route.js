@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
 import { createUser, publicUser } from "@/lib/db/repos/usersRepo.js";
+import { getOrCreateUserApiKey } from "@/lib/db/repos/apiKeysRepo.js";
 import { getClientIp, checkLock, recordFail } from "@/lib/auth/loginLimiter";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -67,6 +68,16 @@ export async function POST(request) {
 				);
 			}
 			throw err;
+		}
+
+		// Auto-issue one default API key for the new user. The key is retrievable
+		// (FE-masked) on their endpoint page, so we don't return it here. A mint
+		// failure must NOT roll back the account — log and continue; an admin can
+		// re-issue from the Users panel.
+		try {
+			await getOrCreateUserApiKey(user.id, "Default");
+		} catch (keyErr) {
+			console.log("Failed to auto-issue API key for new user:", keyErr);
 		}
 
 		return NextResponse.json(

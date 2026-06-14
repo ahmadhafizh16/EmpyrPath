@@ -219,10 +219,22 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const [viewMode, setViewMode] = useState("costs");
   const [providers, setProviders] = useState([]);
   const [periodLocal, setPeriodLocal] = useState("today");
+  const [role, setRole] = useState(null);
   const isInitialLoad = useRef(true);
   const hasLoadedStats = useRef(false);
   const period = periodProp ?? periodLocal;
   const setPeriod = setPeriodProp ?? setPeriodLocal;
+
+  // Resolve session role — "user" gets a simplified layout (no provider topology)
+  useEffect(() => {
+    fetch("/api/auth/status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setRole(d?.role || null))
+      .catch(() => {});
+  }, []);
+
+  // Users only see the API-key breakdown — pin at render time so model data never flashes
+  const effectiveTableView = role === "user" ? "apiKey" : tableView;
 
   // Fetch connected providers once, deduplicate by provider type
   // Always include noAuth free providers (e.g. opencode) regardless of connections
@@ -467,23 +479,28 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       {/* Overview cards */}
       {loading ? spinner : <OverviewCards stats={stats} />}
 
-      {/* Provider topology + Recent Requests */}
+      {/* Provider topology + Recent Requests (admin) | Volume + Recent Requests (user) */}
       {loading ? spinner : (
         <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <ProviderTopology
-            providers={providers}
-            activeRequests={stats.activeRequests || []}
-            lastProvider={stats.recentRequests?.[0]?.provider || ""}
-            errorProvider={stats.errorProvider || ""}
-          />
+          {role === "user" ? (
+            <UsageChart period={period} chartHeight={388} />
+          ) : (
+            <ProviderTopology
+              providers={providers}
+              activeRequests={stats.activeRequests || []}
+              lastProvider={stats.recentRequests?.[0]?.provider || ""}
+              errorProvider={stats.errorProvider || ""}
+            />
+          )}
           <RecentRequests requests={stats.recentRequests || []} />
         </div>
       )}
 
-      {/* Token / Cost chart - sync period */}
-      {loading ? spinner : <UsageChart period={period} />}
+      {/* Token / Cost chart - admin only (user already has it in row above) */}
+      {!loading && role !== "user" && <UsageChart period={period} />}
 
-      {/* Table with segmented tab selector */}
+      {/* Usage breakdown — admin only; hidden entirely for user role */}
+      {role !== "user" && (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2.5">
@@ -527,6 +544,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           />
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -92,10 +92,113 @@ export const TABLES = {
       key: "TEXT UNIQUE NOT NULL",
       name: "TEXT",
       machineId: "TEXT",
+      // Owning user. NULL = legacy/admin pool (created before per-user keys, or
+      // by an admin without an explicit owner) — visible/usable by admins only.
+      userId: "TEXT",
+      // Quota config — all NULL = unlimited (default). Admin sets these via
+      // PATCH /api/keys/[id]/quota. Enforced in checkApiKeyAccess() against
+      // the apiKeyUsageCounter table.
+      quotaMetric: "TEXT",      // 'tokens' | 'requests' | NULL
+      quotaLimit: "INTEGER",    // numeric cap
+      quotaWindow: "TEXT",      // 'day' | 'total' | NULL
+      // Per-key model allowlist as a JSON array of model ids. NULL = no
+      // restriction (admin-style). Empty array '[]' explicitly blocks all.
+      // Admin sets via PATCH /api/keys/[id]/allowed-models. Foundation for
+      // future subscription tiers (a tier = preset bundle of allowedModels +
+      // quota).
+      allowedModels: "TEXT",
       isActive: "INTEGER DEFAULT 1",
       createdAt: "TEXT NOT NULL",
     },
-    indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)",
+      "CREATE INDEX IF NOT EXISTS idx_ak_user ON apiKeys(userId)",
+    ],
+  },
+  // Per-key, per-period counter for quota enforcement. periodKey is either a
+  // local-date string ('YYYY-MM-DD') for window=day or the literal 'total' for
+  // window=total. Day rows self-reset by date rollover (a new day = new row).
+  // Hot-path lookup is O(1) via the composite primary key.
+  apiKeyUsageCounter: {
+    columns: {
+      keyId: "TEXT NOT NULL",
+      periodKey: "TEXT NOT NULL",
+      requests: "INTEGER DEFAULT 0",
+      tokens: "INTEGER DEFAULT 0",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (keyId, periodKey)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_akuc_key ON apiKeyUsageCounter(keyId)",
+    ],
+  },
+  // Admin-defined subscription catalog. A plan grants a model set, a lifetime
+  // token budget, and a daily request cap for a fixed duration. Users request a
+  // plan; an admin approves it (payment gateway is a future seam — priceCents is
+  // display-only in v1). models is a JSON array of model ids.
+  subscriptionPlans: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      description: "TEXT",
+      models: "TEXT NOT NULL",            // JSON array of model ids granted
+      tokenBudget: "INTEGER",             // total tokens over the lifetime (NULL = unlimited)
+      requestsPerDay: "INTEGER",          // daily request cap (NULL = unlimited)
+      durationDays: "INTEGER NOT NULL",
+      priceCents: "INTEGER DEFAULT 0",    // display only in v1
+      stackable: "INTEGER DEFAULT 0",
+      isActive: "INTEGER DEFAULT 1",      // hidden from the user catalog when 0
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_sp_active ON subscriptionPlans(isActive)",
+    ],
+  },
+  // Per-user subscription grants. Snapshots the plan's values at request time so
+  // later plan edits don't retroactively mutate a live subscription. Each row is
+  // an independent quota bucket attached to one API key (keyId). status is
+  // pending → active (on approval) → rejected/cancelled; expiry is computed
+  // lazily on read (expiresAt < now), not stored.
+  userSubscriptions: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      userId: "TEXT NOT NULL",
+      keyId: "TEXT NOT NULL",
+      planId: "TEXT",                     // source plan (NULL if plan later deleted)
+      models: "TEXT NOT NULL",            // snapshot: JSON array of model ids
+      tokenBudget: "INTEGER",             // snapshot
+      requestsPerDay: "INTEGER",          // snapshot
+      durationDays: "INTEGER NOT NULL",   // snapshot
+      stackable: "INTEGER DEFAULT 0",     // snapshot
+      status: "TEXT NOT NULL DEFAULT 'pending'", // pending|active|rejected|cancelled
+      activatedAt: "TEXT",                // set on approval — clock starts here
+      expiresAt: "TEXT",                  // activatedAt + durationDays
+      paymentRef: "TEXT",                 // gateway hook (future)
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_us_user ON userSubscriptions(userId)",
+      "CREATE INDEX IF NOT EXISTS idx_us_key ON userSubscriptions(keyId)",
+      "CREATE INDEX IF NOT EXISTS idx_us_status ON userSubscriptions(status)",
+    ],
+  },
+  // Per-subscription counter. Mirrors apiKeyUsageCounter: periodKey is 'total'
+  // (lifetime token budget) or a local-date 'YYYY-MM-DD' (daily request cap,
+  // self-resets on date rollover). O(1) hot-path lookup via composite PK.
+  subscriptionUsageCounter: {
+    columns: {
+      subscriptionId: "TEXT NOT NULL",
+      periodKey: "TEXT NOT NULL",
+      requests: "INTEGER DEFAULT 0",
+      tokens: "INTEGER DEFAULT 0",
+      updatedAt: "TEXT NOT NULL",
+    },
+    primaryKey: "PRIMARY KEY (subscriptionId, periodKey)",
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_suc_sub ON subscriptionUsageCounter(subscriptionId)",
+    ],
   },
   combos: {
     columns: {
@@ -122,7 +225,13 @@ export const TABLES = {
       id: "INTEGER PRIMARY KEY AUTOINCREMENT",
       timestamp: "TEXT NOT NULL",
       provider: "TEXT",
-      model: "TEXT",
+      model: "TEXT",                  // real served model (e.g. "mimo-v2.5-pro")
+      // User-facing label when different from `model` — currently set to the
+      // combo name when this request was a resolved combo member. NULL for
+      // direct calls. The user-scoped recent-requests view substitutes this in
+      // place of `model`; admins always see the real `model`. Pricing/cost
+      // lookups, byModel breakdowns, and provider stats all use `model`.
+      requestedModel: "TEXT",
       connectionId: "TEXT",
       apiKey: "TEXT",
       endpoint: "TEXT",

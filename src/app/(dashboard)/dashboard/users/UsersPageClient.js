@@ -191,7 +191,319 @@ function Field({ label, optional, children }) {
   );
 }
 
-function UserActions({ user, currentUserId, onChanged }) {
+// Admin quota editor for a single user's API key. Reads live usage from
+// /api/keys/[id]/usage, writes config via PATCH /api/keys/[id]/quota.
+function QuotaModal({ open, apiKey, userEmail, onClose, onSaved }) {
+  const notify = useNotificationStore();
+  const [metric, setMetric] = useState("requests");
+  const [window, setWindow] = useState("day");
+  const [limit, setLimit] = useState("");
+  const [usage, setUsage] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  // Seed the form from the key's current quota, and pull live counters. Only
+  // fires when the modal opens for a key. The seed setState is synchronous;
+  // silence the heuristic — the inputs are uncontrolled-from-props.
+  useEffect(() => {
+    if (!open || !apiKey) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMetric(apiKey.quotaMetric || "requests");
+    setWindow(apiKey.quotaWindow || "day");
+    setLimit(apiKey.quotaLimit != null ? String(apiKey.quotaLimit) : "");
+    setUsage(null);
+    fetch(`/api/keys/${apiKey.id}/usage`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setUsage(data?.counters || null))
+      .catch(() => {});
+  }, [open, apiKey]);
+
+  if (!open || !apiKey) return null;
+
+  const save = async (clear) => {
+    setBusy(true);
+    const body = clear
+      ? { clear: true, resetUsage: true }
+      : { quotaMetric: metric, quotaWindow: window, quotaLimit: Number(limit) };
+    try {
+      const res = await fetch(`/api/keys/${apiKey.id}/quota`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify.success(clear ? "Quota removed." : "Quota updated.");
+        onSaved(data.key);
+        onClose();
+      } else {
+        notify.error(data.error || "Failed to update quota.");
+      }
+    } catch {
+      notify.error("An error occurred.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const period = usage ? (window === "day" ? usage.day : usage.total) : null;
+  const used = period ? (metric === "tokens" ? period.tokens : period.requests) : null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-t-[20px] border border-hairline bg-canvas p-6 shadow-[var(--shadow-elev)] sm:rounded-mm-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-ink">Usage quota</h2>
+            <p className="text-xs text-steel">{userEmail}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-steel hover:text-ink" aria-label="Close">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Field label="Metric">
+            <div className="flex gap-2">
+              {["requests", "tokens"].map((m) => (
+                <button key={m} type="button" onClick={() => setMetric(m)}
+                  className={`flex-1 rounded-full border px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+                    metric === m ? "border-ink bg-ink text-canvas" : "border-hairline text-steel hover:border-ink hover:text-ink"
+                  }`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Window">
+            <div className="flex gap-2">
+              {[["day", "Per day"], ["total", "Total"]].map(([w, label]) => (
+                <button key={w} type="button" onClick={() => setWindow(w)}
+                  className={`flex-1 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                    window === w ? "border-ink bg-ink text-canvas" : "border-hairline text-steel hover:border-ink hover:text-ink"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="Limit">
+            <input type="number" min="1" value={limit} onChange={(e) => setLimit(e.target.value)}
+              placeholder={`Max ${metric} per ${window}`}
+              className="h-11 w-full rounded-[10px] border border-hairline bg-canvas px-3 text-sm text-ink outline-none placeholder:text-stone focus:border-ink" />
+          </Field>
+
+          {used != null && (
+            <p className="rounded-xl border border-hairline bg-mm-surface px-3 py-2 text-xs text-steel">
+              Current usage: <span className="font-semibold text-ink">{used.toLocaleString()}</span> {metric} ({window})
+            </p>
+          )}
+
+          <div className="mt-1 flex gap-2">
+            {apiKey.quotaMetric && (
+              <button type="button" disabled={busy} onClick={() => save(true)}
+                className="rounded-full border border-hairline px-4 py-2.5 text-sm font-semibold text-danger hover:bg-danger/10 disabled:opacity-50">
+                Remove
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="flex-1 rounded-full border border-hairline px-5 py-2.5 text-sm font-semibold text-ink hover:bg-mm-surface">
+              Cancel
+            </button>
+            <button type="button" disabled={busy || !limit || Number(limit) <= 0} onClick={() => save(false)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-canvas hover:bg-charcoal disabled:opacity-50">
+              {busy && <span className="h-4 w-4 animate-spin rounded-full border-2 border-canvas/40 border-t-canvas" />}
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Admin allowance editor for a single user's API key. Pulls the model catalog
+// from /api/models and combos from /api/combos, lets the admin toggle either,
+// writes the unified list via PATCH /api/keys/[id]/allowed-models. Empty
+// selection = the key may call nothing (default-deny stance for users); admins
+// can also clear the list to make the key unrestricted (admin-style).
+function ModelsModal({ open, apiKey, userEmail, onClose, onSaved }) {
+  const notify = useNotificationStore();
+  const [models, setModels] = useState([]);
+  const [combos, setCombos] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [restrict, setRestrict] = useState(false);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  // Seed from the key's current allowedModels and load both catalogs. The
+  // seed setState is synchronous — silence the heuristic (uncontrolled-from-props).
+  useEffect(() => {
+    if (!open || !apiKey) return;
+    const current = Array.isArray(apiKey.allowedModels) ? apiKey.allowedModels : null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setRestrict(current != null);
+    setSelected(new Set(current || []));
+    setQuery("");
+    Promise.all([
+      fetch("/api/models", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/combos", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([modelsData, combosData]) => {
+        setModels(Array.isArray(modelsData?.models) ? modelsData.models : []);
+        setCombos(Array.isArray(combosData?.combos) ? combosData.combos : []);
+      })
+      .catch(() => {});
+  }, [open, apiKey]);
+
+  if (!open || !apiKey) return null;
+
+  const toggle = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const save = async () => {
+    setBusy(true);
+    const body = restrict ? { models: [...selected] } : { clear: true };
+    try {
+      const res = await fetch(`/api/keys/${apiKey.id}/allowed-models`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        notify.success(restrict ? "Allowance updated." : "Restriction removed.");
+        onSaved(data.key);
+        onClose();
+      } else {
+        notify.error(data.error || "Failed to update allowance.");
+      }
+    } catch {
+      notify.error("An error occurred.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const q = query.toLowerCase();
+  const filteredModels = q
+    ? models.filter((m) => `${m.fullModel} ${m.alias || ""}`.toLowerCase().includes(q))
+    : models;
+  const filteredCombos = q
+    ? combos.filter((c) => c.name.toLowerCase().includes(q))
+    : combos;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-t-[20px] border border-hairline bg-canvas p-6 shadow-[var(--shadow-elev)] sm:rounded-mm-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-ink">Allowed models &amp; combos</h2>
+            <p className="text-xs text-steel">{userEmail}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-steel hover:text-ink" aria-label="Close">
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div className="mb-3 flex items-center justify-between gap-4 rounded-xl border border-hairline bg-mm-surface px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">Restrict access</p>
+            <p className="text-xs text-steel">Off = unrestricted (admin-style). On = only the selected models &amp; combos.</p>
+          </div>
+          <button
+            type="button" role="switch" aria-checked={restrict}
+            onClick={() => setRestrict((v) => !v)}
+            className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${restrict ? "bg-ink" : "bg-hairline"}`}
+          >
+            <span className={`mt-0.5 inline-block size-5 rounded-full bg-canvas transition-transform ${restrict ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+
+        {restrict && (
+          <>
+            <input
+              value={query} onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter models or combos…"
+              className="mb-2 h-10 w-full rounded-[10px] border border-hairline bg-canvas px-3 text-sm text-ink outline-none placeholder:text-stone focus:border-ink"
+            />
+            <p className="mb-2 text-xs text-steel">{selected.size} selected</p>
+            <div className="flex-1 overflow-y-auto rounded-xl border border-hairline">
+              {filteredCombos.length > 0 && (
+                <>
+                  <p className="sticky top-0 z-10 bg-mm-surface px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-steel">
+                    Combos
+                  </p>
+                  {filteredCombos.map((c) => {
+                    const on = selected.has(c.name);
+                    return (
+                      <button
+                        key={`combo:${c.id || c.name}`} type="button" onClick={() => toggle(c.name)}
+                        className="flex w-full items-center justify-between gap-3 border-b border-hairline-soft px-3 py-2 text-left last:border-b-0 hover:bg-mm-surface"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-ink">{c.name}</span>
+                          <span className="block truncate text-[11px] text-steel">combo · {c.kind || "fallback"}</span>
+                        </span>
+                        <span className={`material-symbols-outlined text-[18px] ${on ? "text-ink" : "text-stone"}`}>
+                          {on ? "check_box" : "check_box_outline_blank"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              {filteredModels.length > 0 && (
+                <>
+                  <p className="sticky top-0 z-10 bg-mm-surface px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-steel">
+                    Models
+                  </p>
+                  {filteredModels.map((m) => {
+                    const on = selected.has(m.fullModel);
+                    return (
+                      <button
+                        key={m.fullModel} type="button" onClick={() => toggle(m.fullModel)}
+                        className="flex w-full items-center justify-between gap-3 border-b border-hairline-soft px-3 py-2 text-left last:border-b-0 hover:bg-mm-surface"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-ink">{m.alias || m.model}</span>
+                          <span className="block truncate text-[11px] text-steel">{m.fullModel}</span>
+                        </span>
+                        <span className={`material-symbols-outlined text-[18px] ${on ? "text-ink" : "text-stone"}`}>
+                          {on ? "check_box" : "check_box_outline_blank"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+              {filteredModels.length === 0 && filteredCombos.length === 0 && (
+                <p className="px-3 py-6 text-center text-xs text-steel">Nothing matches.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-full border border-hairline px-5 py-2.5 text-sm font-semibold text-ink hover:bg-mm-surface">
+            Cancel
+          </button>
+          <button type="button" disabled={busy} onClick={save}
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-semibold text-canvas hover:bg-charcoal disabled:opacity-50">
+            {busy && <span className="h-4 w-4 animate-spin rounded-full border-2 border-canvas/40 border-t-canvas" />}
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UserActions({ user, currentUserId, apiKey, onChanged, onQuota, onModels }) {
   const notify = useNotificationStore();
   const [busy, setBusy] = useState(false);
   const isSelf = user.id === currentUserId;
@@ -243,6 +555,23 @@ function UserActions({ user, currentUserId, onChanged }) {
         <span className="material-symbols-outlined text-[14px]">{user.isActive ? "block" : "check_circle"}</span>
         {user.isActive ? "Disable" : "Enable"}
       </button>
+      {user.role !== "admin" && apiKey && (
+        <button type="button" disabled={busy} title={apiKey.quotaMetric ? `${apiKey.quotaLimit} ${apiKey.quotaMetric}/${apiKey.quotaWindow}` : "No quota set"}
+          onClick={() => onQuota(user, apiKey)}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-steel hover:bg-mm-surface hover:text-ink disabled:opacity-40">
+          <span className="material-symbols-outlined text-[14px]">speed</span>
+          {apiKey.quotaMetric ? "Quota set" : "Quota"}
+        </button>
+      )}
+      {user.role !== "admin" && apiKey && (
+        <button type="button" disabled={busy}
+          title={Array.isArray(apiKey.allowedModels) ? `${apiKey.allowedModels.length} models allowed` : "No restriction"}
+          onClick={() => onModels(user, apiKey)}
+          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-steel hover:bg-mm-surface hover:text-ink disabled:opacity-40">
+          <span className="material-symbols-outlined text-[14px]">tune</span>
+          {Array.isArray(apiKey.allowedModels) ? "Models set" : "Models"}
+        </button>
+      )}
       {!isSelf && <ConfirmButton label="Delete" icon="delete" danger busy={busy} onConfirm={remove} />}
     </div>
   );
@@ -251,18 +580,22 @@ function UserActions({ user, currentUserId, onChanged }) {
 export default function UsersPageClient() {
   const notify = useNotificationStore();
   const [users, setUsers] = useState([]);
+  const [keysByUser, setKeysByUser] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [allowSignup, setAllowSignup] = useState(true);
   const [signupBusy, setSignupBusy] = useState(false);
+  const [quotaTarget, setQuotaTarget] = useState(null); // { user, apiKey }
+  const [modelsTarget, setModelsTarget] = useState(null); // { user, apiKey }
 
   const load = useCallback(async () => {
     try {
-      const [usersRes, statusRes] = await Promise.all([
+      const [usersRes, statusRes, keysRes] = await Promise.all([
         fetch("/api/users", { cache: "no-store" }),
         fetch("/api/auth/status", { cache: "no-store" }),
+        fetch("/api/keys", { cache: "no-store" }),
       ]);
       if (usersRes.ok) {
         const data = await usersRes.json();
@@ -276,6 +609,17 @@ export default function UsersPageClient() {
         const s = await statusRes.json();
         setCurrentUserId(s.userId || null);
         setAllowSignup(s.allowSignup !== false);
+      }
+      // Map first key per user — PR1 mints exactly one default key per user,
+      // so first-by-createdAt is "the user's key". When PR3 adds multi-key UI,
+      // promote this to a list.
+      if (keysRes.ok) {
+        const data = await keysRes.json();
+        const map = {};
+        for (const k of (data.keys || [])) {
+          if (k.userId && !map[k.userId]) map[k.userId] = k;
+        }
+        setKeysByUser(map);
       }
     } catch {
       setError("An error occurred while loading users.");
@@ -392,7 +736,7 @@ export default function UsersPageClient() {
                     <td className="px-4 py-3"><StatusDot active={u.isActive} /></td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">
-                        <UserActions user={u} currentUserId={currentUserId} onChanged={load} />
+                        <UserActions user={u} currentUserId={currentUserId} apiKey={keysByUser[u.id]} onChanged={load} onQuota={(user, key) => setQuotaTarget({ user, apiKey: key })} onModels={(user, key) => setModelsTarget({ user, apiKey: key })} />
                       </div>
                     </td>
                   </tr>
@@ -416,7 +760,7 @@ export default function UsersPageClient() {
                   <StatusDot active={u.isActive} />
                 </div>
                 <div className="mt-2">
-                  <UserActions user={u} currentUserId={currentUserId} onChanged={load} />
+                  <UserActions user={u} currentUserId={currentUserId} apiKey={keysByUser[u.id]} onChanged={load} onQuota={(user, key) => setQuotaTarget({ user, apiKey: key })} onModels={(user, key) => setModelsTarget({ user, apiKey: key })} />
                 </div>
               </div>
             ))}
@@ -425,6 +769,20 @@ export default function UsersPageClient() {
       )}
 
       <CreateUserModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={load} />
+      <QuotaModal
+        open={!!quotaTarget}
+        apiKey={quotaTarget?.apiKey}
+        userEmail={quotaTarget?.user?.email}
+        onClose={() => setQuotaTarget(null)}
+        onSaved={() => load()}
+      />
+      <ModelsModal
+        open={!!modelsTarget}
+        apiKey={modelsTarget?.apiKey}
+        userEmail={modelsTarget?.user?.email}
+        onClose={() => setModelsTarget(null)}
+        onSaved={() => load()}
+      />
     </div>
   );
 }

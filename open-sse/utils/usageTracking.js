@@ -167,12 +167,59 @@ export function hasValidUsage(usage) {
 }
 
 /**
+ * Merge a newly-extracted usage object into the running accumulator.
+ *
+ * Anthropic streaming splits usage across two SSE events: input_tokens arrive
+ * in `message_start` (with output_tokens: 1 as a placeholder), final
+ * output_tokens arrive in `message_delta`. Replacing instead of merging loses
+ * input_tokens because the delta event reports them as 0. Per-field max
+ * resolves this safely:
+ *   - output_tokens in message_delta is the FINAL cumulative value (not a
+ *     per-chunk delta), so max-of-stream gives the right answer.
+ *   - cache_read_input_tokens / cache_creation_input_tokens typically appear
+ *     only on message_start; max keeps them.
+ * For OpenAI/Gemini providers that emit a single final usage chunk, the prior
+ * accumulator is empty so max degenerates to "use the new value."
+ */
+export function mergeUsage(prev, next) {
+  if (!prev) return next;
+  if (!next) return prev;
+  const merged = { ...prev };
+  for (const [k, v] of Object.entries(next)) {
+    if (typeof v === "number") {
+      merged[k] = Math.max(merged[k] ?? 0, v);
+    } else if (v !== undefined && v !== null) {
+      // Non-numeric (e.g. *_details objects): prefer the latest.
+      merged[k] = v;
+    }
+  }
+  return merged;
+}
+
+/**
  * Extract usage from any format (Claude, OpenAI, Gemini, Responses API)
  */
 export function extractUsage(chunk) {
   if (!chunk || typeof chunk !== "object") return null;
 
-  // Claude format (message_delta event)
+  // Claude format (message_start) — carries input_tokens (+ cache reads) and a
+  // placeholder output_tokens: 1. We must capture this event because Anthropic
+  // splits usage across two SSE events: input on message_start, final output
+  // on message_delta. Skipping it leaves prompt_tokens=0 (the bug seen on
+  // anthropic-compatible providers like mimo).
+  if (chunk.type === "message_start" && chunk.message?.usage && typeof chunk.message.usage === "object") {
+    const u = chunk.message.usage;
+    return normalizeUsage({
+      prompt_tokens: u.input_tokens || 0,
+      completion_tokens: u.output_tokens || 0,
+      cache_read_input_tokens: u.cache_read_input_tokens,
+      cache_creation_input_tokens: u.cache_creation_input_tokens
+    });
+  }
+
+  // Claude format (message_delta event) — carries final output_tokens. Some
+  // providers also re-emit input_tokens here; prefer the higher value when
+  // merging in the accumulator.
   if (chunk.type === "message_delta" && chunk.usage && typeof chunk.usage === "object") {
     return normalizeUsage({
       prompt_tokens: chunk.usage.input_tokens || 0,
@@ -334,14 +381,10 @@ export function logUsage(provider, usage, model = null, connectionId = null, api
 
   console.log(msg);
 
-  // Save to usage DB
-  const tokens = {
-    prompt_tokens: inTokens,
-    completion_tokens: outTokens,
-    cache_read_input_tokens: cacheRead || 0,
-    cache_creation_input_tokens: cacheCreation || 0,
-    reasoning_tokens: reasoning || 0
-  };
-  saveRequestUsage({ model, provider, connectionId, tokens, apiKey: apiKey || undefined }).catch(() => { });
-  appendRequestLog({ model, provider, connectionId, tokens, status: "200 OK" }).catch(() => { });
+  // DB writes intentionally happen elsewhere: streaming flushes a single
+  // saveUsageStats call from buildOnStreamComplete (chatCore/streamingHandler)
+  // using the same `usage` object that drives this log. Writing here too
+  // double-counted every streaming request — visible as identical-millisecond
+  // duplicate rows in usageHistory and 2× drains against per-key + subscription
+  // counters. Keep the pretty console log; the DB write lives in one place.
 }

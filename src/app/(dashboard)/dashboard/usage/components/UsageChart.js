@@ -22,7 +22,7 @@ const fmtTokens = (n) => {
 
 const fmtCost = (n) => `$${(n || 0).toFixed(4)}`;
 
-export default function UsageChart({ period = "7d" }) {
+export default function UsageChart({ period = "7d", chartHeight = 220 }) {
 	const [data, setData] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [viewMode, setViewMode] = useState("tokens");
@@ -70,17 +70,17 @@ export default function UsageChart({ period = "7d" }) {
 			</div>
 
 			{/* Chart body */}
-			<div className="p-3 sm:p-4">
+			<div className="flex flex-1 flex-col p-3 sm:p-4">
 				{loading ? (
-					<div className="flex h-48 items-center justify-center text-sm text-steel">
+					<div className="flex flex-1 items-center justify-center text-sm text-steel" style={{ minHeight: chartHeight }}>
 						Loading...
 					</div>
 				) : !hasData ? (
-					<div className="flex h-48 items-center justify-center text-sm text-steel">
+					<div className="flex flex-1 items-center justify-center text-sm text-steel" style={{ minHeight: chartHeight }}>
 						No data for this period
 					</div>
 				) : (
-					<ResponsiveContainer width="100%" height={220}>
+					<ResponsiveContainer width="100%" height={chartHeight}>
 						<AreaChart
 							data={data}
 							margin={{ top: 4, right: 8, left: 0, bottom: 0 }}

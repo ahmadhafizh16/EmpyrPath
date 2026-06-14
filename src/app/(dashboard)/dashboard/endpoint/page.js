@@ -5,6 +5,8 @@ import EndpointPageClient from "./EndpointPageClient";
 
 const S = SECTIONS.endpoint;
 
+// Admin-only — role=user is redirected to /dashboard/my-api-key by the
+// dashboardGuard's ADMIN_ONLY_DASHBOARD_PATHS list.
 export default async function EndpointPage() {
   const machineId = await getMachineId();
   return (

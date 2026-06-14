@@ -1,4 +1,5 @@
 import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings } from "@/lib/localDb";
+import { checkApiKeyAccess as checkApiKeyAccessRepo } from "@/lib/db/repos/apiKeysRepo.js";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
@@ -309,4 +310,15 @@ export function extractApiKey(request) {
 export async function isValidApiKey(apiKey) {
   if (!apiKey) return false;
   return await validateApiKey(apiKey);
+}
+
+/**
+ * Structured API key access check for the LLM chokepoint. Wraps the repo's
+ * quota-aware check. Returns { ok, reason, key, quota? } where reason is one of:
+ *   'missing' | 'not_found' | 'inactive' | 'quota_exceeded' | null
+ * The caller maps reason → HTTP status (401 for auth failures, 429 for quota).
+ */
+export async function checkApiKeyAccess(apiKey, opts = {}) {
+  if (!apiKey) return { ok: false, reason: "missing", key: null };
+  return await checkApiKeyAccessRepo(apiKey, opts);
 }

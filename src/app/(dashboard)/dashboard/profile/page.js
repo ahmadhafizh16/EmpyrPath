@@ -73,10 +73,22 @@ export default function ProfilePage() {
 	const [proxyStatus, setProxyStatus] = useState({ type: "", message: "" });
 	const [proxyLoading, setProxyLoading] = useState(false);
 	const [proxyTestLoading, setProxyTestLoading] = useState(false);
+	// Role gates the admin-only sections (Local Mode, OIDC, Routing, Network,
+	// Observability, Shutdown). Users only see Language, Security (password),
+	// Logout, and App Info.
+	const [role, setRole] = useState(null);
+	const isUser = role === "user";
 
 	useEffect(() => {
 		setLocale(getLocaleFromCookie());
 	}, [langOpen]);
+
+	useEffect(() => {
+		fetch("/api/auth/status")
+			.then((res) => res.json())
+			.then((data) => setRole(data?.role || null))
+			.catch(() => {});
+	}, []);
 
 	useEffect(() => {
 		fetch("/api/settings")
@@ -683,7 +695,8 @@ export default function ProfilePage() {
 					description={SECTIONS.profile.description}
 					icon={SECTIONS.profile.icon}
 				/>
-				{/* Local Mode Info */}
+				{/* Local Mode Info — admin only */}
+				{!isUser && (
 				<Card>
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
 						<div className="flex items-center gap-3 sm:gap-4">
@@ -755,6 +768,7 @@ export default function ProfilePage() {
 						)}
 					</div>
 				</Card>
+				)}
 
 				{/* Language */}
 				<Card>
@@ -906,6 +920,9 @@ export default function ProfilePage() {
 					</div>
 				</Card>
 
+				{/* OIDC, Routing, Network, Observability — admin only */}
+				{!isUser && (
+				<>
 				{/* OIDC */}
 				<Card>
 					<button
@@ -1424,18 +1441,22 @@ export default function ProfilePage() {
 						/>
 					</div>
 				</Card>
+				</>
+				)}
 
 				{/* Account actions */}
 				<div className="flex flex-col sm:flex-row gap-2">
-					<Button
-						variant="outline"
-						fullWidth
-						icon="power_settings_new"
-						onClick={() => setShutdownOpen(true)}
-						className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
-					>
-						Shutdown
-					</Button>
+					{!isUser && (
+						<Button
+							variant="outline"
+							fullWidth
+							icon="power_settings_new"
+							onClick={() => setShutdownOpen(true)}
+							className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
+						>
+							Shutdown
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						fullWidth

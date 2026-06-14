@@ -132,7 +132,7 @@ export function translateNonStreamingResponse(responseBody, targetFormat, source
 /**
  * Handle non-streaming response from provider.
  */
-export async function handleNonStreamingResponse({ providerResponse, provider, model, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog }) {
+export async function handleNonStreamingResponse({ providerResponse, provider, model, usageModel, sourceFormat, targetFormat, body, stream, translatedBody, finalBody, requestStartTime, connectionId, apiKey, clientRawRequest, onRequestSuccess, reqLogger, toolNameMap, trackDone, appendLog }) {
   trackDone();
   const contentType = providerResponse.headers.get("content-type") || "";
   let responseBody;
@@ -163,7 +163,12 @@ export async function handleNonStreamingResponse({ providerResponse, provider, m
 
   const usage = extractUsageFromResponse(responseBody);
   appendLog({ tokens: usage, status: "200 OK" });
-  saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, latency: { ttft: 0, total: Date.now() - requestStartTime } });
+  // model: real provider/model — used inside saveUsageStats to resolve the
+  // subscription bucket via apiKeyId+model match. usageModel: the surface label
+  // (combo name when this is a combo member) — what the user sees in Recent
+  // Requests / Per-model breakdown. Pass both; saveUsageStats writes
+  // usageModel as the public model and uses model for enforcement.
+  saveUsageStats({ provider, model, usageModel, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, latency: { ttft: 0, total: Date.now() - requestStartTime } });
 
   const translatedResponse = needsTranslation(targetFormat, sourceFormat)
     ? translateNonStreamingResponse(responseBody, targetFormat, sourceFormat)

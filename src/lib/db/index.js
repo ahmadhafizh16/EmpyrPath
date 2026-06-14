@@ -29,8 +29,29 @@ export {
 
 // API keys
 export {
-  getApiKeys, getApiKeyById, createApiKey, updateApiKey, deleteApiKey, validateApiKey,
+  getApiKeys, getApiKeysByUserId, getApiKeyById, createApiKey,
+  getOrCreateUserApiKey, updateApiKey, deleteApiKey, validateApiKey,
+  checkApiKeyAccess, setApiKeyQuota, setApiKeyAllowedModels,
 } from "./repos/apiKeysRepo.js";
+
+// Per-key quota counters (PR2). Read for UI badges + admin readouts; the
+// increment path is wired directly into saveRequestUsage's transaction.
+export {
+  getApiKeyCounters, recordApiKeyUsage, resetApiKeyUsage,
+} from "./repos/apiKeyUsageRepo.js";
+
+// Subscription plans (admin catalog) + per-user grants. Sync helpers
+// (computeModelGrantInTx, debitSubscriptionInTx) are consumed inside
+// saveRequestUsage's transaction so the debit is atomic with the usage write.
+export {
+  listPlans, getPlanById, createPlan, updatePlan, deletePlan,
+} from "./repos/subscriptionPlansRepo.js";
+export {
+  getEffectiveModelGrant, getActiveSubscriptionsForKey,
+  getSubscriptionsByUser, getPendingSubscriptions, getSubscriptionById,
+  requestSubscription, approveSubscription, setSubscriptionStatus,
+  computeModelGrantInTx, debitSubscriptionInTx,
+} from "./repos/userSubscriptionsRepo.js";
 
 // Users (multi-user dashboard auth: admin / user roles)
 export {

@@ -40,6 +40,10 @@ const DEFAULT_SETTINGS = {
   // first-run remains friction-less; flip to false to lock down a deployed
   // instance (admin accounts can still be added via the 9router CLI).
   allowSignup: true,
+  // Whether role=user accounts may self-generate/rotate their own API keys.
+  // Default false: users get one auto-issued key on registration and cannot
+  // mint more unless an admin enables this. Admins are unaffected.
+  allowUserKeyGeneration: false,
 };
 
 async function readRaw() {

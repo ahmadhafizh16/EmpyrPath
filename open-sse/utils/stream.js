@@ -1,7 +1,7 @@
 import { translateResponse, initState } from "../translator/index.js";
 import { FORMATS } from "../translator/formats.js";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb.js";
-import { extractUsage, hasValidUsage, estimateUsage, logUsage, addBufferToUsage, filterUsageForFormat, COLORS } from "./usageTracking.js";
+import { extractUsage, hasValidUsage, estimateUsage, estimateInputTokens, logUsage, addBufferToUsage, filterUsageForFormat, mergeUsage, COLORS } from "./usageTracking.js";
 import { parseSSELine, hasValuableContent, fixInvalidId, formatSSE } from "./streamHelpers.js";
 import { getOpenAIResponsesEventName, isOpenAIResponsesTerminalEvent, formatIncompleteOpenAIResponsesStreamFailure } from "./responsesStreamHelpers.js";
 import { dbg, isDebugEnabled } from "./debugLog.js";
@@ -144,7 +144,9 @@ export function createSSEStream(options = {}) {
 
               const extracted = extractUsage(parsed);
               if (extracted) {
-                usage = extracted;
+                // Merge so message_start (input_tokens) + message_delta
+                // (output_tokens) accumulate per-stream rather than replacing.
+                usage = mergeUsage(usage, extracted);
               }
 
               const isFinishChunk = parsed.choices?.[0]?.finish_reason;
@@ -252,9 +254,11 @@ export function createSSEStream(options = {}) {
           }
         }
 
-        // Extract usage
+        // Extract usage. Merge into the accumulator so Anthropic streams
+        // (input_tokens on message_start, output_tokens on message_delta)
+        // accumulate per-stream. See mergeUsage's docs for the per-field rule.
         const extracted = extractUsage(parsed);
-        if (extracted) state.usage = extracted; // Keep original usage for logging
+        if (extracted) state.usage = mergeUsage(state.usage, extracted);
 
         // Responses same-format passthrough: re-emit with original event framing
         if (keepsOpenAIResponsesFormat && openAIResponsesEventName) {
@@ -328,6 +332,13 @@ export function createSSEStream(options = {}) {
 
           if (!hasValidUsage(usage) && totalContentLength > 0) {
             usage = estimateUsage(body, totalContentLength, FORMATS.OPENAI);
+          } else if (usage && !(usage.prompt_tokens > 0) && !(usage.input_tokens > 0)) {
+            // Provider reported output tokens but no input (e.g. some
+            // anthropic-compatible upstreams omit input_tokens on
+            // message_start). Estimate input from the request body so the
+            // recorded row isn't misleadingly 0 — keep the provider's real
+            // output_tokens as-is.
+            usage = { ...usage, prompt_tokens: estimateInputTokens(body) };
           }
 
           if (hasValidUsage(usage)) {
@@ -411,6 +422,12 @@ export function createSSEStream(options = {}) {
 
         if (!hasValidUsage(state?.usage) && totalContentLength > 0) {
           state.usage = estimateUsage(body, totalContentLength, sourceFormat);
+        } else if (state?.usage && !(state.usage.prompt_tokens > 0) && !(state.usage.input_tokens > 0)) {
+          // Provider reported output tokens but no input (e.g. some
+          // anthropic-compatible upstreams omit input_tokens on message_start).
+          // Estimate input from the request body so the recorded row isn't
+          // misleadingly 0 — keep the provider's real output_tokens as-is.
+          state.usage = { ...state.usage, prompt_tokens: estimateInputTokens(body) };
         }
 
         if (hasValidUsage(state?.usage)) {

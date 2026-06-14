@@ -2,6 +2,8 @@ import { EventEmitter } from "events";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
+import { incrementCounterInTx, getLocalDateKey as getCounterDateKey } from "./apiKeyUsageRepo.js";
+import { computeModelGrantInTx, debitSubscriptionInTx } from "./userSubscriptionsRepo.js";
 
 const PENDING_TIMEOUT_MS = 60 * 1000;
 const RING_CAP = 50;
@@ -101,11 +103,11 @@ async function ensureRingInitialized() {
   recentRing.initialized = true;
   try {
     const db = await getAdapter();
-    const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens, meta FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
+    const rows = db.all(`SELECT timestamp, provider, model, requestedModel, connectionId, apiKey, endpoint, cost, status, tokens, meta FROM usageHistory ORDER BY id DESC LIMIT ?`, [RING_CAP]);
     recentRing.items = rows.reverse().map((r) => {
       const meta = parseJson(r.meta, {}) || {};
       return {
-        timestamp: r.timestamp, provider: r.provider, model: r.model, connectionId: r.connectionId,
+        timestamp: r.timestamp, provider: r.provider, model: r.model, requestedModel: r.requestedModel || null, connectionId: r.connectionId,
         apiKey: r.apiKey, endpoint: r.endpoint, cost: r.cost, status: r.status,
         tokens: parseJson(r.tokens, {}),
         latency: meta.latency || null,
@@ -199,20 +201,26 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
   statsEmitter.emit("pending");
 }
 
-export async function getActiveRequests() {
+export async function getActiveRequests(filter = {}) {
+  // apiKeys: Set<string> of plaintext keys that scope recentRequests to a user.
+  // Undefined → admin view (no scoping). activeRequests has no apiKey
+  // association (keyed by connectionId+model), so we suppress it for scoped callers.
+  const apiKeyFilter = filter.apiKeys instanceof Set ? filter.apiKeys : null;
   const activeRequests = [];
-  const connectionMap = await getConnectionMapCached();
 
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
-      if (count > 0) {
-        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
-        const match = modelKey.match(/^(.*) \((.*)\)$/);
-        activeRequests.push({
-          model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
-          account: accountName, count,
-        });
+  if (!apiKeyFilter) {
+    const connectionMap = await getConnectionMapCached();
+    for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
+      for (const [modelKey, count] of Object.entries(models)) {
+        if (count > 0) {
+          const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
+          const match = modelKey.match(/^(.*) \((.*)\)$/);
+          activeRequests.push({
+            model: match ? match[1] : modelKey,
+            provider: match ? match[2] : "unknown",
+            account: accountName, count,
+          });
+        }
       }
     }
   }
@@ -221,10 +229,15 @@ export async function getActiveRequests() {
   const seen = new Set();
   const recentRequests = [...recentRing.items]
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    .filter((e) => !apiKeyFilter || (e.apiKey && apiKeyFilter.has(e.apiKey)))
     .map((e) => {
       const t = e.tokens || {};
+      // User-scoped view sees the requested label (combo name) when present;
+      // admin view always sees the real served model. Pricing/breakdowns key
+      // off the real model regardless.
+      const displayModel = apiKeyFilter ? (e.requestedModel || e.model) : e.model;
       return {
-        timestamp: e.timestamp, model: e.model, provider: e.provider || "",
+        timestamp: e.timestamp, model: displayModel, provider: e.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         latency: e.latency || null,
@@ -260,9 +273,9 @@ export async function saveRequestUsage(entry) {
     // better-sqlite3 is sync → no JS yield mid-transaction → no race in same process.
     db.transaction(() => {
       db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO usageHistory(timestamp, provider, model, requestedModel, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          entry.timestamp, entry.provider || null, entry.model || null,
+          entry.timestamp, entry.provider || null, entry.model || null, entry.requestedModel || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens),
@@ -283,6 +296,36 @@ export async function saveRequestUsage(entry) {
       const cur = db.get(`SELECT value FROM _meta WHERE key = 'totalRequestsLifetime'`);
       const next = (cur ? parseInt(cur.value, 10) : 0) + 1;
       db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
+
+      // Per-key quota counters: increment day + total rows atomically with the
+      // usage write. Resolves keyId from the plaintext apiKey via idx_ak_key
+      // (one indexed lookup). Untracked keys (no row) are skipped silently —
+      // requests without an apiKey, or with an apiKey not in the table, don't
+      // accrue against any quota and don't need to.
+      if (entry.apiKey) {
+        const keyRow = db.get(`SELECT id FROM apiKeys WHERE key = ?`, [entry.apiKey]);
+        if (keyRow?.id) {
+          const counterDate = getCounterDateKey(entry.timestamp);
+          const tokenDelta = promptTokens + completionTokens;
+          incrementCounterInTx(db, keyRow.id, counterDate, 1, tokenDelta, entry.timestamp);
+          incrementCounterInTx(db, keyRow.id, "total", 1, tokenDelta, entry.timestamp);
+
+          // Subscription debit: if an active bucket grants the served model,
+          // drain it atomically with the usage write. We re-resolve here (rather
+          // than threading subscriptionId from the access check) because combos
+          // can route to a different model than the user requested — the served
+          // entry.model is the source of truth. computeModelGrantInTx returns
+          // the soonest-expiry bucket with token budget remaining (use-it-or-
+          // lose-it). If no bucket grants the model, this is a no-op and the
+          // request was governed by the key-level quota above.
+          if (entry.model) {
+            const grant = computeModelGrantInTx(db, keyRow.id, entry.model, entry.timestamp);
+            if (grant.hasSubscription && grant.debitId) {
+              debitSubscriptionInTx(db, grant.debitId, { requests: 1, tokens: tokenDelta, timestamp: entry.timestamp });
+            }
+          }
+        }
+      }
     });
 
     pushToRing(entry);
@@ -322,8 +365,10 @@ function loadDaysInRange(adapter, maxDays) {
   return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
 }
 
-export async function getUsageStats(period = "all") {
+export async function getUsageStats(period = "all", filter = {}) {
   const db = await getAdapter();
+  // apiKeys: Set<string> of plaintext keys scoping recentRequests to one user.
+  const apiKeyFilter = filter.apiKeys instanceof Set ? filter.apiKeys : null;
 
   const [{ getProviderConnections }, { getApiKeys }, { getProviderNodes }] = await Promise.all([
     import("./connectionsRepo.js"),
@@ -347,15 +392,21 @@ export async function getUsageStats(period = "all") {
   const apiKeyMap = {};
   for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
-  // recentRequests from live history (last 100 entries enough for 20 deduped)
-  const recentRows = db.all(`SELECT timestamp, provider, model, tokens, status, meta FROM usageHistory ORDER BY id DESC LIMIT 100`);
+  // recentRequests from live history. Pull a wider window when filtering by
+  // apiKey so a low-volume user still sees enough rows after the scope filter.
+  const recentLimit = apiKeyFilter ? 500 : 100;
+  const recentRows = db.all(`SELECT timestamp, provider, model, requestedModel, apiKey, tokens, status, meta FROM usageHistory ORDER BY id DESC LIMIT ?`, [recentLimit]);
   const seen = new Set();
   const recentRequests = recentRows
+    .filter((r) => !apiKeyFilter || (r.apiKey && apiKeyFilter.has(r.apiKey)))
     .map((r) => {
       const t = parseJson(r.tokens, {}) || {};
       const m = parseJson(r.meta, {}) || {};
+      // User-scoped view sees the requested label (combo name) when present;
+      // admin view always sees the real served model.
+      const displayModel = apiKeyFilter ? (r.requestedModel || r.model) : r.model;
       return {
-        timestamp: r.timestamp, model: r.model, provider: r.provider || "",
+        timestamp: r.timestamp, model: displayModel, provider: r.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
         latency: m.latency || null,

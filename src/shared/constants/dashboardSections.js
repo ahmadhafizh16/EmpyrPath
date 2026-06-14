@@ -82,6 +82,27 @@ export const SECTIONS = {
     description: "Provision and manage dashboard accounts and roles.",
     icon: "group",
   },
+  subscriptions: {
+    color: "purple",
+    eyebrow: "Admin",
+    title: "Subscriptions",
+    description: "Define subscription plans and approve user purchase requests.",
+    icon: "card_membership",
+  },
+  plans: {
+    color: "magenta",
+    eyebrow: "Subscriptions",
+    title: "Plans",
+    description: "Browse subscription plans and apply them to your API key.",
+    icon: "shopping_bag",
+  },
+  "my-api-key": {
+    color: "coral",
+    eyebrow: "Endpoint",
+    title: "My API Key",
+    description: "Your endpoint URL, keys, models, and usage limits.",
+    icon: "vpn_key",
+  },
   profile: {
     color: "ink",
     eyebrow: "Settings",

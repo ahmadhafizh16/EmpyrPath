@@ -76,7 +76,7 @@ export function handleStreamingResponse({ providerResponse, provider, model, sou
 /**
  * Build onStreamComplete callback for streaming usage tracking.
  */
-export function buildOnStreamComplete({ provider, model, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest }) {
+export function buildOnStreamComplete({ provider, model, usageModel, connectionId, apiKey, requestStartTime, body, stream, finalBody, translatedBody, clientRawRequest }) {
   const streamDetailId = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
   const onStreamComplete = (contentObj, usage, ttftAt) => {
@@ -100,7 +100,7 @@ export function buildOnStreamComplete({ provider, model, connectionId, apiKey, r
       console.error("[RequestDetail] Failed to update streaming content:", err.message);
     });
 
-    saveUsageStats({ provider, model, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, latency, label: "STREAM USAGE" });
+    saveUsageStats({ provider, model, usageModel, tokens: usage, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, latency, label: "STREAM USAGE" });
   };
 
   return { onStreamComplete, streamDetailId };

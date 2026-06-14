@@ -11,14 +11,19 @@ import ThemeToggle from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
-import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
+import {
+  MEDIA_PROVIDER_KINDS,
+  AI_PROVIDERS,
+} from "@/shared/constants/providers";
 import { translate } from "@/i18n/runtime";
 
 const getPageInfo = (pathname) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
   // Media provider detail: /dashboard/media-providers/[kind]/[id]
-  const mediaDetailMatch = pathname.match(/\/media-providers\/([^/]+)\/([^/]+)$/);
+  const mediaDetailMatch = pathname.match(
+    /\/media-providers\/([^/]+)\/([^/]+)$/,
+  );
   if (mediaDetailMatch) {
     const kindId = mediaDetailMatch[1];
     const providerId = mediaDetailMatch[2];
@@ -28,9 +33,18 @@ const getPageInfo = (pathname) => {
       title: provider?.name || providerId,
       description: "",
       breadcrumbs: [
-        { label: "Media Providers", href: `/dashboard/media-providers/${kindId}` },
-        { label: kindConfig?.label || kindId, href: `/dashboard/media-providers/${kindId}` },
-        { label: provider?.name || providerId, image: `/providers/${providerId}.png` },
+        {
+          label: "Media Providers",
+          href: `/dashboard/media-providers/${kindId}`,
+        },
+        {
+          label: kindConfig?.label || kindId,
+          href: `/dashboard/media-providers/${kindId}`,
+        },
+        {
+          label: provider?.name || providerId,
+          image: `/providers/${providerId}.png`,
+        },
       ],
     };
   }
@@ -129,7 +143,8 @@ const getPageInfo = (pathname) => {
   if (pathname.includes("/skills"))
     return {
       title: "Agent Skills",
-      description: "Copy a link and paste to your AI to use 9Router — no install needed",
+      description:
+        "Copy a link and paste to your AI to use 9Router — no install needed",
       icon: "extension",
       breadcrumbs: [],
     };
@@ -191,7 +206,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled) {
-          setDisplayName(data?.displayName || data?.oidcName || data?.oidcEmail || "");
+          setDisplayName(
+            data?.displayName || data?.oidcName || data?.oidcEmail || "",
+          );
           setLoginMethod(data?.loginMethod || "");
         }
       } catch {
@@ -292,7 +309,9 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
       <div className="flex items-center gap-1.5 shrink-0">
         {displayName && loginMethod === "OIDC" && (
           <div className="hidden sm:flex items-center max-w-[220px] px-3 py-1.5 rounded-full border border-hairline bg-mm-surface text-xs text-steel truncate">
-            <span className="material-symbols-outlined text-[14px] mr-1.5 text-ink">person</span>
+            <span className="material-symbols-outlined text-[14px] mr-1.5 text-ink">
+              person
+            </span>
             <span className="truncate">{displayName}</span>
             <span className="ml-2 shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-canvas">
               OIDC
@@ -300,19 +319,18 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         )}
         <HeaderSearch />
-        <button
+        {/* <button
           onClick={() => setDonateOpen(true)}
           className="flex items-center gap-1.5 px-3 h-8 rounded-full border border-hairline bg-canvas text-ink hover:bg-mm-surface transition-colors text-xs font-semibold"
           aria-label="Donate"
         >
           <span className="material-symbols-outlined text-[16px]">favorite</span>
           <span className="hidden sm:inline">Donate</span>
-        </button>
-        <ThemeToggle />
-        <HeaderLanguage />
-        <HeaderMenu onLogout={handleLogout} />
+        </button> */}
+        {/* <ThemeToggle /> */}
+        {/* <HeaderLanguage /> */}
+        {/* <HeaderMenu onLogout={handleLogout} /> */}
       </div>
-      <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>
   );
 }

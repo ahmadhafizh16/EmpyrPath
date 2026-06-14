@@ -72,7 +72,12 @@ export function buildRequestDetail(base, overrides = {}) {
   };
 }
 
-export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, endpoint, latency, label = "USAGE" }) {
+// usageModel: optional user-facing label, set when this request is a resolved
+// combo member (caller passes the combo name). Stored in usageHistory's
+// requestedModel column. The user-scoped recent-requests view substitutes it
+// for `model`; admins always see the real served model. Pricing/cost lookups,
+// per-model breakdowns, and provider stats all key off the real `model`.
+export function saveUsageStats({ provider, model, usageModel, tokens, connectionId, apiKey, endpoint, latency, label = "USAGE" }) {
   if (!tokens || typeof tokens !== "object") return;
 
   const inTokens = tokens.input_tokens ?? tokens.prompt_tokens ?? 0;
@@ -93,6 +98,7 @@ export function saveUsageStats({ provider, model, tokens, connectionId, apiKey, 
   saveRequestUsage({
     provider: provider || "unknown",
     model: model || "unknown",
+    requestedModel: usageModel && usageModel !== model ? usageModel : null,
     tokens: normalized,
     timestamp: new Date().toISOString(),
     connectionId: connectionId || undefined,
