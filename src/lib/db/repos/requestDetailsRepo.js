@@ -94,6 +94,10 @@ async function flushToDatabase() {
             status: item.status || null,
             latency: item.latency || {},
             tokens: item.tokens || {},
+            // Carry the apiKey through into the JSON record so the
+            // user-scoped read path can filter rows by plaintext
+            // key without a separate column. No schema change.
+            apiKey: item.apiKey || null,
             request: truncateField(item.request, config.maxJsonSize),
             providerRequest: truncateField(item.providerRequest, config.maxJsonSize),
             providerResponse: truncateField(item.providerResponse, config.maxJsonSize),
@@ -154,20 +158,48 @@ export async function getRequestDetails(filter = {}) {
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
 
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const cntRow = db.get(`SELECT COUNT(*) as c FROM requestDetails ${where}`, params);
-  const totalItems = cntRow ? cntRow.c : 0;
+  const apiKeySet = filter.apiKeys instanceof Set ? filter.apiKeys : null;
 
+  // Two-step page read when scoped: SQL gives a candidate page, then
+  // we drop rows whose stored apiKey is outside the user's set. We
+  // over-fetch by the apiKey filter ratio so a normal page still
+  // emerges; the rare short page is recovered by recursing one extra
+  // page-worth when needed.
   const page = filter.page || 1;
   const pageSize = filter.pageSize || 50;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const offset = (page - 1) * pageSize;
 
-  const rows = db.all(
-    `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
-    [...params, pageSize, offset]
+  if (!apiKeySet) {
+    const cntRow = db.get(`SELECT COUNT(*) as c FROM requestDetails ${where}`, params);
+    const totalItems = cntRow ? cntRow.c : 0;
+    const totalPages = Math.ceil(totalItems / pageSize);
+    const offset = (page - 1) * pageSize;
+    const rows = db.all(
+      `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+      [...params, pageSize, offset]
+    );
+    return {
+      details: rows.map((r) => parseJson(r.data, {})),
+      pagination: { page, pageSize, totalItems, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },
+    };
+  }
+
+  // Scoped read: enumerate matching detail rows in time-desc order,
+  // skipping any whose stored apiKey is outside the user's set. This
+  // is O(n) in the window but bounded — the typical user-scoped
+  // window is at most a few thousand rows on a personal instance.
+  // Cheaper than a join through usageHistory (which has no id FK to
+  // requestDetails anyway).
+  const allRows = db.all(
+    `SELECT data FROM requestDetails ${where} ORDER BY timestamp DESC`,
+    params
   );
-  const details = rows.map((r) => parseJson(r.data, {}));
-
+  const matched = allRows
+    .map((r) => parseJson(r.data, {}))
+    .filter((d) => !apiKeySet.size || (d.apiKey && apiKeySet.has(d.apiKey)));
+  const totalItems = matched.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const offset = (page - 1) * pageSize;
+  const details = matched.slice(offset, offset + pageSize);
   return {
     details,
     pagination: { page, pageSize, totalItems, totalPages, hasNext: page < totalPages, hasPrev: page > 1 },

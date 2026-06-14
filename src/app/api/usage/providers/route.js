@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getRequestDetails } from "@/lib/requestDetailsDb";
 import { getProviderNodes } from "@/lib/localDb";
 import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
+import { resolveUsageApiKeyFilterOrEmpty } from "@/lib/auth/usageScope";
 
 /**
  * GET /api/usage/providers
@@ -9,7 +10,10 @@ import { AI_PROVIDERS, getProviderByAlias } from "@/shared/constants/providers";
  */
 export async function GET() {
   try {
-    const { details } = await getRequestDetails({ pageSize: 9999 });
+    const scope = await resolveUsageApiKeyFilterOrEmpty();
+    const detailFilter = { pageSize: 9999 };
+    if (scope) detailFilter.apiKeys = scope.apiKeys;
+    const { details } = await getRequestDetails(detailFilter);
 
     // Extract unique providers
     const providerIds = [...new Set(details.map(r => r.provider).filter(Boolean))].sort();

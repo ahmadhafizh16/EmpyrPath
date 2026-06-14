@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { getRecentLogs } from "@/lib/usageDb";
+import { resolveUsageApiKeyFilterOrEmpty } from "@/lib/auth/usageScope";
 
 export async function GET() {
   try {
-    const logs = await getRecentLogs(200);
+    const filter = await resolveUsageApiKeyFilterOrEmpty();
+    const logs = await getRecentLogs(200, filter || {});
     return NextResponse.json(logs);
   } catch (error) {
     console.error("Error fetching logs:", error);

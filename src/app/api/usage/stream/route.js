@@ -1,5 +1,5 @@
 import { getUsageStats, statsEmitter, getActiveRequests } from "@/lib/usageDb";
-import { resolveUsageApiKeyFilter } from "@/lib/auth/usageScope";
+import { resolveUsageApiKeyFilterOrEmpty } from "@/lib/auth/usageScope";
 
 export const dynamic = "force-dynamic";
 
@@ -7,8 +7,7 @@ export async function GET() {
   const encoder = new TextEncoder();
   // Resolve scope ONCE at connection time — the SSE stream is bound to one
   // session, so re-resolving on every push would burn a DB hit per pending event.
-  const apiKeys = await resolveUsageApiKeyFilter();
-  const scope = apiKeys ? { apiKeys } : {};
+  const scope = await resolveUsageApiKeyFilterOrEmpty();
   const state = { closed: false, keepalive: null, send: null, sendPending: null, cachedStats: null };
 
   const stream = new ReadableStream({

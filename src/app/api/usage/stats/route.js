@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUsageStats } from "@/lib/usageDb";
-import { resolveUsageApiKeyFilter } from "@/lib/auth/usageScope";
+import { resolveUsageApiKeyFilterOrEmpty } from "@/lib/auth/usageScope";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d", "all"]);
 
@@ -15,8 +15,8 @@ export async function GET(request) {
       return NextResponse.json({ error: "Invalid period" }, { status: 400 });
     }
 
-    const apiKeys = await resolveUsageApiKeyFilter();
-    const stats = await getUsageStats(period, apiKeys ? { apiKeys } : {});
+    const filter = await resolveUsageApiKeyFilterOrEmpty();
+    const stats = await getUsageStats(period, filter || {});
     return NextResponse.json(stats);
   } catch (error) {
     console.error("[API] Failed to get usage stats:", error);

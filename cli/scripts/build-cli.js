@@ -131,18 +131,27 @@ if (fs.existsSync(cliAppDir)) {
 console.log("✅ Cleaned\n");
 
 // Step 3: Copy Next.js standalone build to app/cli/app.
-// Newer Next.js standalone output writes server.js/package.json plus .next/, src/, and
-// node_modules/ directly under .next/standalone. Older builds may still use a nested app/.
+// Layouts seen in the wild:
+//   - server.js directly under standalone/                   (default tracing root)
+//   - server.js under standalone/app/                        (older nested-app layout)
+//   - server.js under standalone/<basename(appDir)>/         (workspace tracing root —
+//     Next mirrors the path from tracingRoot down to the project, so when tracingRoot
+//     is appDir/.., server.js lands in standalone/<projectFolder>/)
 console.log("3️⃣  Copying Next.js standalone build to app/cli/app...");
 const standaloneRoot = path.join(appDir, ".next", "standalone");
 const standaloneRootResolved = path.join(buildDistDir, "standalone");
 const standaloneRootToUse = fs.existsSync(standaloneRootResolved) ? standaloneRootResolved : standaloneRoot;
-const standaloneApp = fs.existsSync(path.join(standaloneRootToUse, "server.js"))
-  ? standaloneRootToUse
-  : path.join(standaloneRootToUse, "app");
-if (!fs.existsSync(standaloneApp)) {
+const projectFolderName = path.basename(appDir);
+const standaloneCandidates = [
+  standaloneRootToUse,
+  path.join(standaloneRootToUse, "app"),
+  path.join(standaloneRootToUse, projectFolderName),
+];
+const standaloneApp = standaloneCandidates.find((p) => fs.existsSync(path.join(p, "server.js")));
+if (!standaloneApp) {
   console.error("❌ Next.js standalone build not found under .next/standalone");
-  console.error("Expected either .next/standalone/server.js or .next/standalone/app/");
+  console.error("Looked for server.js in:");
+  for (const p of standaloneCandidates) console.error(`  - ${p}`);
   process.exit(1);
 }
 copyRecursive(standaloneApp, cliAppDir);
